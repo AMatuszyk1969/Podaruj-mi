@@ -1,0 +1,64 @@
+services:
+
+  # ── Aplikacja FastAPI ──────────────────────────────────────────────────
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://podaruj:podaruj@db:5432/podaruj_mi
+      APP_ENV: development
+      FRONTEND_URL: http://localhost:5173
+      SECRET_KEY: dev-secret-key-change-in-production-abc123
+      MAIL_USERNAME: test
+      MAIL_PASSWORD: test
+      MAIL_FROM: dev@podaruj-mi.pl
+      MAIL_SERVER: mailhog
+      MAIL_PORT: 1025
+      MAIL_STARTTLS: "false"
+      MAIL_SSL_TLS: "false"
+    volumes:
+      - .:/app          # hot-reload w trybie dev
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    networks:
+      - podaruj-net
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: podaruj
+      POSTGRES_PASSWORD: podaruj
+      POSTGRES_DB: podaruj_mi
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U podaruj -d podaruj_mi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - podaruj-net
+
+  # ── MailHog (lokalny serwer SMTP do podgladu e-maili) ─────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"    # SMTP
+      - "8025:8025"    # Web UI – otwórz http://localhost:8025
+    networks:
+      - podaruj-net
+
+volumes:
+  postgres_data:
+
+networks:
+  podaruj-net:
+    driver: bridge

@@ -1,0 +1,17 @@
+{% if users %}
+  {% for u in users %}
+  <button type="button"
+          onclick="selectRecipient('{{ u.id }}', '{{ u.first_name }} {{ u.last_name }}', '{{ u.email }}')"
+          class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-brand-50 rounded-lg text-left transition">
+    <div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 flex-shrink-0">
+      {{ u.first_name[0] }}{{ u.last_name[0] }}
+    </div>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-medium text-gray-800">{{ u.first_name }} {{ u.last_name }}</p>
+      <p class="text-xs text-gray-400 truncate">{{ u.email }}</p>
+    </div>
+  </button>
+  {% endfor %}
+{% elif query %}
+  <p class="text-sm text-gray-400 px-3 py-2">Nie znaleziono użytkownika „{{ query }}"</p>
+{% endif %}

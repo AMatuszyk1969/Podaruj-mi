@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pip install poetry==1.8.4
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: Lint with ruff
+        run: poetry run ruff check app/ tests/
+
+      - name: Run tests
+        env:
+          DATABASE_URL: sqlite:///./test.db
+          SECRET_KEY: ci-test-secret-key-abc123456789
+          APP_ENV: development
+          FRONTEND_URL: http://localhost:5173
+          MAIL_USERNAME: test
+          MAIL_PASSWORD: test
+          MAIL_FROM: test@test.pl
+          MAIL_SERVER: localhost
+          MAIL_PORT: 1025
+          MAIL_STARTTLS: "false"
+          MAIL_SSL_TLS: "false"
+        run: poetry run pytest tests/ -v --cov=app --cov-report=term-missing
+
+  # Deploy na Render.com uruchamia sie automatycznie po pushu na main
+  # (skonfigurowane po stronie Render – webhook na repo)

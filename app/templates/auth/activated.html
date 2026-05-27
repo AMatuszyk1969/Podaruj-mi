@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Aktywacja konta – Podaruj mi{% endblock %}
+{% block content %}
+<div class="flex flex-col items-center text-center pt-12 max-w-sm mx-auto">
+  {% if success %}
+  <div class="text-6xl mb-6">🎉</div>
+  <h1 class="text-2xl font-bold text-green-600 mb-3">Konto aktywowane!</h1>
+  <p class="text-gray-500 mb-8">Możesz się teraz zalogować i zacząć obdarowywać.</p>
+  <a href="/login" class="w-full bg-brand-700 hover:bg-brand-600 text-white font-semibold py-3 rounded-xl shadow transition text-center">
+    Zaloguj się
+  </a>
+  {% else %}
+  <div class="text-6xl mb-6">😕</div>
+  <h1 class="text-2xl font-bold text-red-600 mb-3">Nieprawidłowy link</h1>
+  <p class="text-gray-500 mb-8">Token aktywacyjny jest nieprawidłowy lub wygasł. Zarejestruj się ponownie.</p>
+  <a href="/register" class="w-full bg-brand-700 hover:bg-brand-600 text-white font-semibold py-3 rounded-xl shadow transition text-center">
+    Zarejestruj się
+  </a>
+  {% endif %}
+</div>
+{% endblock %}

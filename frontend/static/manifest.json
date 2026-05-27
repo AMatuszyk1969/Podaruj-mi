@@ -1,0 +1,36 @@
+{
+  "name": "Podaruj mi",
+  "short_name": "Podaruj mi",
+  "description": "Koordynuj prezenty dla bliskich",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1A569E",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nowa okazja",
+      "url": "/occasions/new",
+      "description": "Utwórz nową okazję"
+    },
+    {
+      "name": "Moje okazje",
+      "url": "/occasions",
+      "description": "Zobacz swoje okazje"
+    }
+  ]
+}

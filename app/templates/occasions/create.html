@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Nowa okazja – Podaruj mi{% endblock %}
+{% block content %}
+<div class="max-w-sm mx-auto">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="/occasions" class="text-gray-400 hover:text-brand-700">
+      <svg width="24" height="24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
+    <h1 class="text-xl font-bold text-brand-700">Nowa okazja</h1>
+  </div>
+
+  {% if error %}
+  <div class="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-5">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/occasions/new" class="flex flex-col gap-4">
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Tytuł okazji</label>
+      <input type="text" name="title" required placeholder="np. Urodziny Anny"
+             class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Rodzaj okazji</label>
+      <select name="occasion_type"
+              class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+        <option value="birthday">🎂 Urodziny</option>
+        <option value="name_day">🌸 Imieniny</option>
+        <option value="christmas">🎄 Boże Narodzenie</option>
+        <option value="anniversary">💍 Rocznica</option>
+        <option value="other">🎁 Inna</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Data okazji</label>
+      <input type="date" name="occasion_date" required
+             class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Do kiedy można wybrać prezenty?</label>
+      <p class="text-xs text-gray-400 mb-1">Ostatni dzień, w którym goście mogą rezerwować prezenty.</p>
+      <input type="date" name="pledge_deadline" required
+             class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Widoczność</label>
+      <select name="visibility"
+              class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+        <option value="friends">👥 Tylko znajomi</option>
+        <option value="family">👨‍👩‍👧 Tylko rodzina</option>
+        <option value="public">🌍 Wszyscy</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Osoba obdarowywana</label>
+
+      <!-- Ukryte pole z ID – wysyłane w formularzu -->
+      <input type="hidden" name="recipient_id" id="recipient_id" required/>
+
+      <!-- Wybrany użytkownik – widoczny po wyborze -->
+      <div id="recipient-chosen" class="hidden mb-2 flex items-center gap-2 bg-brand-50 border border-brand-200 rounded-xl px-3 py-2.5">
+        <div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 flex-shrink-0" id="recipient-initials"></div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-800" id="recipient-name"></p>
+          <p class="text-xs text-gray-400" id="recipient-email"></p>
+        </div>
+        <button type="button" onclick="clearRecipient()" class="text-gray-400 hover:text-red-500 text-lg leading-none">✕</button>
+      </div>
+
+      <!-- Pole wyszukiwania -->
+      <div id="recipient-search-box">
+        <input type="text" id="recipient-search"
+               placeholder="Wpisz imię, nazwisko lub e-mail…"
+               autocomplete="off"
+               hx-get="/recipients/search"
+               hx-trigger="input changed delay:300ms"
+               hx-target="#recipient-results"
+               hx-include="[id='recipient-search']"
+               name="q"
+               class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+
+        <!-- Dropdown wyników -->
+        <div id="recipient-results"
+             class="mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden empty:hidden">
+        </div>
+
+        <!-- Szybki skrót: ja sam -->
+        <button type="button"
+                onclick="selectRecipient('{{ user.id }}', '{{ user.first_name }} {{ user.last_name }}', '{{ user.email }}')"
+                class="mt-1.5 text-xs text-brand-700 hover:underline">
+          Wybierz mnie (jestem solenizantem)
+        </button>
+      </div>
+    </div>
+
+    <script>
+      function selectRecipient(id, name, email) {
+        document.getElementById('recipient_id').value = id;
+        document.getElementById('recipient-name').textContent = name;
+        document.getElementById('recipient-email').textContent = email;
+        var initials = name.split(' ').map(function(w){ return w[0] || ''; }).join('').slice(0,2).toUpperCase();
+        document.getElementById('recipient-initials').textContent = initials;
+        document.getElementById('recipient-chosen').classList.remove('hidden');
+        document.getElementById('recipient-search-box').classList.add('hidden');
+        document.getElementById('recipient-results').innerHTML = '';
+      }
+      function clearRecipient() {
+        document.getElementById('recipient_id').value = '';
+        document.getElementById('recipient-search').value = '';
+        document.getElementById('recipient-results').innerHTML = '';
+        document.getElementById('recipient-chosen').classList.add('hidden');
+        document.getElementById('recipient-search-box').classList.remove('hidden');
+      }
+    </script>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Opis <span class="text-gray-400 font-normal">(opcjonalny)</span></label>
+      <textarea name="description" rows="2" placeholder="Dodatkowe informacje..."
+                class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"></textarea>
+    </div>
+
+    <button type="submit"
+            class="w-full bg-brand-700 hover:bg-brand-600 text-white font-semibold py-3 rounded-xl shadow transition mt-2">
+      Utwórz okazję
+    </button>
+  </form>
+</div>
+{% endblock %}

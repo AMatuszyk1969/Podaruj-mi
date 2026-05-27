@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Podaruj mi – platforma do obdarowywania{% endblock %}
+{% block content %}
+<div class="flex flex-col items-center text-center pt-8 pb-12">
+
+  <div class="text-7xl mb-6">🎁</div>
+
+  <h1 class="text-3xl font-bold text-brand-700 mb-3">Podaruj mi</h1>
+  <p class="text-gray-500 text-lg mb-2">Koniec z kupowaniem tego samego prezentu!</p>
+  <p class="text-gray-400 text-sm mb-10 max-w-xs">
+    Twórz listy życzeń, zapraszaj znajomych i rodzinę,
+    a każdy wybierze co kupi – bez spoilerów dla solenizanta.
+  </p>
+
+  <div class="flex flex-col gap-3 w-full max-w-xs">
+    <a href="/register"
+       class="w-full bg-brand-700 hover:bg-brand-600 text-white font-semibold py-3 px-6 rounded-xl shadow transition text-center">
+      Zacznij za darmo
+    </a>
+    <a href="/login"
+       class="w-full bg-white hover:bg-brand-50 text-brand-700 font-semibold py-3 px-6 rounded-xl border border-brand-200 transition text-center">
+      Mam już konto
+    </a>
+  </div>
+
+  <div class="mt-14 grid grid-cols-3 gap-4 text-center w-full max-w-sm">
+    <div class="flex flex-col items-center gap-2">
+      <span class="text-3xl">📋</span>
+      <p class="text-xs text-gray-500">Tworzysz listę życzeń</p>
+    </div>
+    <div class="flex flex-col items-center gap-2">
+      <span class="text-3xl">👥</span>
+      <p class="text-xs text-gray-500">Znajomi się zapisują</p>
+    </div>
+    <div class="flex flex-col items-center gap-2">
+      <span class="text-3xl">🎉</span>
+      <p class="text-xs text-gray-500">Bez duplikatów!</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

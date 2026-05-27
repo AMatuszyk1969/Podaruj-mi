@@ -1,0 +1,65 @@
+<!-- Partial: karta przedmiotu – używana przez HTMX -->
+<div id="item-{{ item.id }}"
+     class="bg-gray-50 rounded-xl border border-gray-100 p-4">
+
+  <div class="flex items-start justify-between gap-3">
+    <div class="flex-1 min-w-0">
+      <p class="font-semibold text-gray-800">{{ item.name }}</p>
+      {% if item.description %}
+      <p class="text-sm text-gray-500 mt-0.5">{{ item.description }}</p>
+      {% endif %}
+      <div class="flex flex-wrap items-center gap-3 mt-2">
+        {% if item.estimated_price %}
+        <span class="text-sm font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-lg">
+          {{ item.estimated_price }} zł
+        </span>
+        {% endif %}
+        {% if item.url %}
+        <a href="{{ item.url }}" target="_blank"
+           class="text-xs text-brand-600 hover:underline flex items-center gap-1">
+          🔗 Zobacz w sklepie
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Badge statusu -->
+    <span class="flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full
+      {% if item.status == 'available' %}bg-green-50 text-green-700
+      {% elif item.status == 'reserved' %}bg-orange-50 text-orange-700
+      {% else %}bg-gray-100 text-gray-500{% endif %}">
+      {% if item.status == 'available' %}dostępny
+      {% elif item.status == 'reserved' %}zarezerwowany
+      {% else %}kupiony{% endif %}
+    </span>
+  </div>
+
+  <!-- Liczba rezerwacji (widoczna dla wszystkich oprócz obdarowywanego) -->
+  {% if not is_recipient and item.pledges_count > 0 %}
+  <p class="text-xs text-gray-400 mt-2">👥 {{ item.pledges_count }} os. się zapisało</p>
+  {% endif %}
+
+  <!-- Przycisk akcji (tylko dla darczyńców, przed deadlinem) -->
+  {% if not is_recipient and not deadline_passed %}
+    {% if item.id in my_pledges %}
+    <button
+      hx-delete="/items/{{ item.id }}/pledge"
+      hx-target="#item-{{ item.id }}"
+      hx-swap="outerHTML"
+      hx-confirm="Wycofać rezerwację?"
+      class="mt-3 w-full bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-sm font-medium py-2 rounded-xl transition">
+      ✓ Zarezerwowane – wycofaj
+    </button>
+    {% elif item.status == 'available' %}
+    <button
+      hx-post="/items/{{ item.id }}/pledge"
+      hx-target="#item-{{ item.id }}"
+      hx-swap="outerHTML"
+      class="mt-3 w-full bg-brand-700 hover:bg-brand-600 text-white text-sm font-semibold py-2 rounded-xl shadow transition">
+      🎁 Zarezerwuj
+    </button>
+    {% else %}
+    <p class="mt-3 text-center text-xs text-gray-400">Ktoś już to zarezerwował</p>
+    {% endif %}
+  {% endif %}
+</div>

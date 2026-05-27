@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Sprawdź e-mail – Podaruj mi{% endblock %}
+{% block content %}
+<div class="flex flex-col items-center text-center pt-12 max-w-sm mx-auto">
+  <div class="text-6xl mb-6">📬</div>
+  <h1 class="text-2xl font-bold text-brand-700 mb-3">Sprawdź swoją skrzynkę!</h1>
+  <p class="text-gray-500 mb-2">Wysłaliśmy link aktywacyjny na adres:</p>
+  <p class="font-semibold text-brand-700 mb-6">{{ email }}</p>
+  <p class="text-gray-400 text-sm mb-8">Kliknij w link w e-mailu, żeby aktywować konto. Link jest ważny 24 godziny.</p>
+  <a href="/login" class="text-brand-700 font-medium hover:underline text-sm">Wróć do logowania</a>
+</div>
+{% endblock %}
