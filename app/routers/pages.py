@@ -235,10 +235,11 @@ def recipients_search(request: Request, q: str = "", db: Session = Depends(get_d
         friend_ids.add(f.requester_id)
 
     family_ids: set[str] = set()
-    mem = db.query(FamilyMember).filter(
+    # Sprawdź WSZYSTKIE rodziny użytkownika (nie tylko pierwszą)
+    user_mems = db.query(FamilyMember).filter(
         FamilyMember.user_id == user.id, FamilyMember.status == "accepted"
-    ).first()
-    if mem:
+    ).all()
+    for mem in user_mems:
         for fm in db.query(FamilyMember).filter(
             FamilyMember.family_id == mem.family_id,
             FamilyMember.status == "accepted",
@@ -698,16 +699,24 @@ async def invite_platform_post(
     if not user:
         return HTMLResponse("", status_code=401)
 
-    # Sprawdź czy zaproszenie już zostało wysłane
+    # Walidacja group_type — tylko dozwolone wartości
+    if group_type not in ("friend", "family"):
+        return HTMLResponse('<p class="text-sm text-red-500 mt-1">Nieprawidłowy typ grupy.</p>')
+
+    # Sprawdź czy zaproszenie już zostało wysłane (i czy nie wygasło)
     existing = db.query(PendingInvitation).filter(
         PendingInvitation.invited_email == email,
         PendingInvitation.inviter_id == user.id,
         PendingInvitation.group_type == group_type,
     ).first()
-    if existing:
+    if existing and existing.expires_at.replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
         return HTMLResponse(
             '<p class="text-sm text-amber-600 mt-1">Zaproszenie zostało już wysłane. Oczekuje na rejestrację.</p>'
         )
+    # Jeśli istnieje ale wygasło – usuń i wyślij nowe
+    if existing:
+        db.delete(existing)
+        db.flush()
 
     # Pobierz dane rodziny jeśli potrzeba
     family_obj = None
@@ -753,6 +762,7 @@ def invitations_page(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=303)
     invitations = db.query(PendingInvitation).filter(
         PendingInvitation.invited_email == user.email,
+        PendingInvitation.expires_at > datetime.now(timezone.utc),
     ).all()
     return templates.TemplateResponse("social/invitations.html", {
         "request": request, "user": user, "invitations": invitations,
@@ -768,7 +778,13 @@ def invitation_accept(inv_id: str, request: Request, db: Session = Depends(get_d
         return RedirectResponse("/login", status_code=303)
 
     inv = db.get(PendingInvitation, inv_id)
+    now = datetime.now(timezone.utc)
     if not inv or inv.invited_email != user.email:
+        return RedirectResponse("/invitations", status_code=303)
+    # Odrzuć wygasłe zaproszenia
+    if inv.expires_at.replace(tzinfo=timezone.utc) < now:
+        db.delete(inv)
+        db.commit()
         return RedirectResponse("/invitations", status_code=303)
 
     try:
@@ -893,13 +909,26 @@ def profile_edit_password(
     return HTMLResponse('<p class="text-sm text-green-600 font-medium">✓ Hasło zostało zmienione.</p>')
 
 
+def _detect_image_type(data: bytes) -> str | None:
+    """Detekcja typu obrazu przez magic bytes — nie wymaga imghdr (usunięty w Python 3.13)."""
+    if data[:3] == b'\xff\xd8\xff':
+        return 'jpeg'
+    if data[:8] == b'\x89PNG\r\n\x1a\n':
+        return 'png'
+    if data[:6] in (b'GIF87a', b'GIF89a'):
+        return 'gif'
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        return 'webp'
+    return None
+
+
 @router.post("/profile/edit/avatar")
 async def profile_edit_avatar(
     request: Request,
     avatar: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    import imghdr, os, uuid as _uuid
+    import os, uuid as _uuid
     user = get_user_from_cookie(request, db)
     if not user:
         return RedirectResponse("/login", status_code=303)
@@ -911,7 +940,7 @@ async def profile_edit_avatar(
             "avatar_error": "Plik za duży (max 2 MB).",
         })
 
-    img_type = imghdr.what(None, h=content[:32])
+    img_type = _detect_image_type(content)
     if img_type not in ("jpeg", "png", "gif", "webp"):
         return templates.TemplateResponse("profile/edit.html", {
             "request": request, "user": user,

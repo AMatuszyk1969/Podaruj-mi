@@ -127,7 +127,11 @@
 
         <!-- Ja sam/a -->
         <button type="button"
-                onclick="selectRecipient('{{ user.id }}', '{{ user.first_name }} {{ user.last_name }}', 'Ja sam/a', '{{ user.avatar_url or '' }}')"
+                data-id="{{ user.id }}"
+                data-name="{{ user.first_name }} {{ user.last_name }}"
+                data-label="Ja sam/a"
+                data-avatar="{{ user.avatar_url or '' }}"
+                onclick="selectRecipient(this.dataset.id,this.dataset.name,this.dataset.label,this.dataset.avatar)"
                 class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-brand-50 text-left transition">
           {% if user.avatar_url %}
           <img src="{{ user.avatar_url }}" class="w-8 h-8 rounded-full object-cover flex-shrink-0"/>
@@ -148,7 +152,11 @@
         </div>
         {% for f in friends %}
         <button type="button"
-                onclick="selectRecipient('{{ f.id }}', '{{ f.first_name }} {{ f.last_name }}', 'Znajomy', '{{ f.avatar_url or '' }}')"
+                data-id="{{ f.id }}"
+                data-name="{{ f.first_name }} {{ f.last_name }}"
+                data-label="Znajomy"
+                data-avatar="{{ f.avatar_url or '' }}"
+                onclick="selectRecipient(this.dataset.id,this.dataset.name,this.dataset.label,this.dataset.avatar)"
                 class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-brand-50 text-left transition">
           {% if f.avatar_url %}
           <img src="{{ f.avatar_url }}" class="w-8 h-8 rounded-full object-cover flex-shrink-0"/>

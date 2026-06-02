@@ -1,11 +1,20 @@
 {% if users %}
   {% for u in users %}
   <button type="button"
-          onclick="selectRecipient('{{ u.id }}', '{{ u.first_name }} {{ u.last_name }}', '{{ u.email }}')"
+          data-id="{{ u.id }}"
+          data-name="{{ u.first_name }} {{ u.last_name }}"
+          data-label="{{ u.email }}"
+          data-avatar="{{ u.avatar_url or '' }}"
+          onclick="selectRecipient(this.dataset.id,this.dataset.name,this.dataset.label,this.dataset.avatar)"
           class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-brand-50 rounded-lg text-left transition">
+    {% if u.avatar_url %}
+    <img src="{{ u.avatar_url }}" alt="{{ u.first_name }}"
+         class="w-8 h-8 rounded-full object-cover flex-shrink-0"/>
+    {% else %}
     <div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 flex-shrink-0">
-      {{ u.first_name[0] }}{{ u.last_name[0] }}
+      {{ u.first_name[0]|upper }}{{ u.last_name[0]|upper }}
     </div>
+    {% endif %}
     <div class="flex-1 min-w-0">
       <p class="text-sm font-medium text-gray-800">{{ u.first_name }} {{ u.last_name }}</p>
       <p class="text-xs text-gray-400 truncate">{{ u.email }}</p>
