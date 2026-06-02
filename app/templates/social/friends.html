@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Znajomi – Podaruj mi{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5">
+  <h1 class="text-xl font-bold text-brand-700">Znajomi</h1>
+  <span class="text-sm text-gray-400">{{ friends|length }} osób</span>
+</div>
+
+<!-- Zaproś nową osobę -->
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+  <p class="text-sm font-semibold text-gray-700 mb-3">➕ Zaproś znajomego</p>
+  <form hx-post="/social/friends/invite"
+        hx-target="#invite-result"
+        hx-swap="innerHTML"
+        class="flex gap-2">
+    <input type="email" name="email" required
+           placeholder="Adres e-mail znajomego"
+           class="flex-1 border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+    <button type="submit"
+            class="flex-shrink-0 bg-brand-700 hover:bg-brand-600 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow transition">
+      Zaproś
+    </button>
+  </form>
+  <div id="invite-result"></div>
+</div>
+
+<!-- Oczekujące zaproszenia do mnie -->
+{% if received_invitations %}
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+  <div class="flex items-center gap-2 mb-3">
+    <span class="w-5 h-5 bg-brand-700 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+      {{ received_invitations|length }}
+    </span>
+    <p class="text-sm font-semibold text-gray-700">Zaproszenia do Ciebie</p>
+  </div>
+  {% for inv in received_invitations %}
+  <div class="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0 gap-3">
+    <div class="flex items-center gap-3 flex-1 min-w-0">
+      <div class="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 flex-shrink-0">
+        {{ inv.requester.first_name[0]|upper }}{{ inv.requester.last_name[0]|upper }}
+      </div>
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-gray-800 truncate">{{ inv.requester.first_name }} {{ inv.requester.last_name }}</p>
+        <p class="text-xs text-gray-400 truncate">{{ inv.requester.email }}</p>
+      </div>
+    </div>
+    <div class="flex gap-2 flex-shrink-0">
+      <form method="post" action="/social/friends/invitations/{{ inv.id }}/accept">
+        <button type="submit"
+                class="text-xs font-semibold bg-brand-700 hover:bg-brand-600 text-white px-3 py-1.5 rounded-lg transition">
+          Akceptuj
+        </button>
+      </form>
+      <form method="post" action="/social/friends/invitations/{{ inv.id }}/reject">
+        <button type="submit"
+                class="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-lg transition">
+          Odrzuć
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Lista znajomych -->
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+  <p class="text-sm font-semibold text-gray-700 mb-3">👥 Moi znajomi</p>
+  {% if friends %}
+    {% for friend in friends %}
+    <div class="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0 gap-3">
+      <div class="flex items-center gap-3 flex-1 min-w-0">
+        <div class="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 flex-shrink-0">
+          {{ friend.first_name[0]|upper }}{{ friend.last_name[0]|upper }}
+        </div>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-gray-800 truncate">{{ friend.first_name }} {{ friend.last_name }}</p>
+          <p class="text-xs text-gray-400 truncate">{{ friend.email }}</p>
+        </div>
+      </div>
+      <form method="post" action="/social/friends/{{ friend.id }}/remove">
+        <button type="submit"
+                onclick="return confirm('Usunąć {{ friend.first_name }} z listy znajomych?')"
+                class="text-xs text-gray-400 hover:text-red-500 px-2 py-1 rounded transition">
+          Usuń
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="text-sm text-gray-400 py-2">Nie masz jeszcze żadnych znajomych. Zaproś pierwszą osobę!</p>
+  {% endif %}
+</div>
+
+<!-- Wysłane zaproszenia (oczekujące) -->
+{% if sent_invitations %}
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+  <p class="text-sm font-semibold text-gray-700 mb-3">📤 Wysłane zaproszenia</p>
+  {% for inv in sent_invitations %}
+  <div class="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500 flex-shrink-0">
+        {{ inv.addressee.first_name[0]|upper }}{{ inv.addressee.last_name[0]|upper }}
+      </div>
+      <div>
+        <p class="text-sm font-medium text-gray-700">{{ inv.addressee.first_name }} {{ inv.addressee.last_name }}</p>
+        <p class="text-xs text-gray-400">{{ inv.addressee.email }}</p>
+      </div>
+    </div>
+    <span class="text-xs text-gray-400 bg-gray-50 border border-gray-100 px-2 py-1 rounded-lg">Oczekuje…</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Informacja o widoczności okazji -->
+<div class="bg-brand-50 border border-brand-100 rounded-xl px-4 py-3 mt-2">
+  <p class="text-xs text-brand-700 font-medium mb-1">ℹ️ Jak działają znajomi?</p>
+  <p class="text-xs text-gray-500">
+    Okazje z widocznością <strong>„Tylko znajomi"</strong> będą widoczne
+    dla wszystkich osób na Twojej liście znajomych.
+    Ty też zobaczysz okazje, do których Cię dodano.
+  </p>
+</div>
+
+{% endblock %}

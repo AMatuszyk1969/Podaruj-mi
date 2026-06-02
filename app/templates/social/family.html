@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Rodzina – Podaruj mi{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5">
+  <h1 class="text-xl font-bold text-brand-700">Moja Rodzina</h1>
+</div>
+
+{% if error %}
+<div class="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-5">{{ error }}</div>
+{% endif %}
+
+<!-- Zaproszenie oczekujące na akceptację -->
+{% if pending_invitation %}
+<div class="bg-brand-50 rounded-2xl border border-brand-100 p-4 mb-4">
+  <p class="text-xs font-semibold text-brand-700 uppercase tracking-wider mb-3">Zaproszenie do rodziny</p>
+  <p class="text-lg font-bold text-gray-900 mb-0.5">{{ pending_invitation.family.name }}</p>
+  <p class="text-sm text-gray-500 mb-4">
+    Stworzona przez:
+    {{ pending_invitation.family.created_by.first_name }}
+    {{ pending_invitation.family.created_by.last_name }}
+    · {{ pending_invitation.family.members|selectattr('status', 'equalto', 'accepted')|list|length }} członków
+  </p>
+  <div class="flex gap-2">
+    <form method="post" action="/social/family/accept/{{ pending_invitation.id }}" class="flex-1">
+      <button type="submit"
+              class="w-full bg-brand-700 hover:bg-brand-600 text-white font-semibold py-2.5 rounded-xl shadow transition text-sm">
+        👨‍👩‍👧 Dołącz do rodziny
+      </button>
+    </form>
+    <form method="post" action="/social/family/reject/{{ pending_invitation.id }}">
+      <button type="submit"
+              class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-2.5 px-4 rounded-xl transition text-sm">
+        Odrzuć
+      </button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if family %}
+
+<!-- Karta rodziny -->
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+  <div class="flex items-start justify-between mb-4">
+    <div>
+      <p class="text-lg font-bold text-gray-900">{{ family.name }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">
+        {% set accepted_count = namespace(n=0) %}
+        {% for m in family.members %}{% if m.status == 'accepted' %}{% set accepted_count.n = accepted_count.n + 1 %}{% endif %}{% endfor %}
+        {{ accepted_count.n }} członków
+      </p>
+    </div>
+    {% if family.created_by_id == user.id %}
+    <span class="text-xs bg-brand-50 text-brand-700 border border-brand-100 px-2 py-1 rounded-lg font-medium">Twórca</span>
+    {% endif %}
+  </div>
+
+  <!-- Aktywni członkowie -->
+  {% for member in family.members if member.status == 'accepted' %}
+  <div class="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 flex-shrink-0">
+        {{ member.user.first_name[0]|upper }}{{ member.user.last_name[0]|upper }}
+      </div>
+      <div>
+        <p class="text-sm font-medium text-gray-800">
+          {{ member.user.first_name }} {{ member.user.last_name }}
+          {% if member.user.id == family.created_by_id %}
+          <span class="text-xs text-gray-400 font-normal ml-1">(twórca)</span>
+          {% endif %}
+        </p>
+        <p class="text-xs text-gray-400">{{ member.user.email }}</p>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Oczekujące zaproszenia (tylko twórca widzi) -->
+  {% if family.created_by_id == user.id %}
+    {% set has_pending = namespace(v=false) %}
+    {% for m in family.members %}{% if m.status == 'pending' %}{% set has_pending.v = true %}{% endif %}{% endfor %}
+    {% if has_pending.v %}
+    <div class="mt-3 pt-3 border-t border-gray-100">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Oczekujące zaproszenia</p>
+      {% for member in family.members if member.status == 'pending' %}
+      <div class="flex items-center justify-between py-1.5">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">
+            {{ member.user.first_name[0]|upper }}{{ member.user.last_name[0]|upper }}
+          </div>
+          <p class="text-sm text-gray-600">{{ member.user.first_name }} {{ member.user.last_name }}</p>
+        </div>
+        <span class="text-xs text-gray-400">Oczekuje…</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endif %}
+</div>
+
+<!-- Zaproś do rodziny (tylko twórca) -->
+{% if family.created_by_id == user.id %}
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+  <p class="text-sm font-semibold text-gray-700 mb-3">➕ Zaproś do rodziny</p>
+  <form hx-post="/social/family/invite"
+        hx-target="#family-invite-result"
+        hx-swap="innerHTML"
+        class="flex gap-2">
+    <input type="email" name="email" required
+           placeholder="Adres e-mail osoby"
+           class="flex-1 border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+    <button type="submit"
+            class="flex-shrink-0 bg-brand-700 hover:bg-brand-600 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow transition">
+      Zaproś
+    </button>
+  </form>
+  <div id="family-invite-result"></div>
+</div>
+{% endif %}
+
+{% elif not pending_invitation %}
+
+<!-- Brak rodziny – formularz tworzenia -->
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+  <p class="text-sm font-semibold text-gray-700 mb-1">Stwórz grupę rodzinną</p>
+  <p class="text-xs text-gray-400 mb-4">Nadaj nazwę swojej rodzinie i zaproś członków.</p>
+  <form method="post" action="/social/family/create" class="flex flex-col gap-3">
+    <input type="text" name="name" required
+           placeholder="np. Rodzina Kowalskich"
+           class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+    <button type="submit"
+            class="w-full bg-brand-700 hover:bg-brand-600 text-white font-semibold py-3 rounded-xl shadow transition">
+      + Utwórz rodzinę
+    </button>
+  </form>
+</div>
+
+<div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 text-center">
+  <p class="text-sm text-gray-400">Możesz też poczekać na zaproszenie od kogoś z rodziny.</p>
+</div>
+
+{% endif %}
+
+<!-- Informacja o widoczności -->
+<div class="bg-brand-50 border border-brand-100 rounded-xl px-4 py-3 mt-4">
+  <p class="text-xs text-brand-700 font-medium mb-1">ℹ️ Jak działa rodzina?</p>
+  <p class="text-xs text-gray-500">
+    Okazje z widocznością <strong>„Tylko rodzina"</strong> będą widoczne
+    wyłącznie dla członków tej samej grupy rodzinnej.
+    Możesz należeć tylko do jednej grupy na raz.
+  </p>
+</div>
+
+{% endblock %}

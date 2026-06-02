@@ -9,15 +9,17 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.models.family import FamilyMember
 from app.models.item import Item
 from app.models.occasion import Occasion
 from app.models.pledge import Pledge
 from app.schemas.auth import LoginRequest, RegisterRequest
 from app.schemas.item import ItemCreateRequest
 from app.schemas.occasion import OccasionCreateRequest
-from app.schemas.social import PledgeCreateRequest
+from app.schemas.social import FamilyCreateRequest, PledgeCreateRequest
 from app.services.auth_service import AuthService
 from app.services.occasion_service import ItemService, OccasionService, PledgeService
+from app.services.social_service import FamilyService, FriendService
 from app.utils.cookie_auth import get_user_from_cookie
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -410,3 +412,179 @@ def profile_page(request: Request, db: Session = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=303)
     return templates.TemplateResponse("profile/index.html", {"request": request, "user": user})
+
+
+# ── Znajomi ───────────────────────────────────────────────────────────────────
+
+@router.get("/social/friends", response_class=HTMLResponse)
+def friends_page(request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+
+    friends = FriendService.list_friends(db, user.id)
+    all_invitations = FriendService.list_invitations(db, user.id)
+    received = [i for i in all_invitations if i.addressee.id == user.id]
+    sent     = [i for i in all_invitations if i.requester.id == user.id]
+
+    return templates.TemplateResponse("social/friends.html", {
+        "request": request,
+        "user": user,
+        "friends": friends,
+        "received_invitations": received,
+        "sent_invitations": sent,
+    })
+
+
+@router.post("/social/friends/invite", response_class=HTMLResponse)
+def friends_invite_post(
+    request: Request,
+    email: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse("", status_code=401)
+    try:
+        FriendService.invite(db, email, user.id)
+        return HTMLResponse('<p class="text-sm text-green-600 font-medium mt-1">✓ Zaproszenie wysłane!</p>')
+    except Exception as exc:
+        detail = getattr(exc, "detail", str(exc))
+        return HTMLResponse(f'<p class="text-sm text-red-500 mt-1">{detail}</p>', status_code=400)
+
+
+@router.post("/social/friends/invitations/{invitation_id}/accept")
+def friends_accept_post(invitation_id: str, request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    try:
+        FriendService.accept(db, invitation_id, user.id)
+    except Exception:
+        pass
+    return RedirectResponse("/social/friends", status_code=303)
+
+
+@router.post("/social/friends/invitations/{invitation_id}/reject")
+def friends_reject_post(invitation_id: str, request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    try:
+        FriendService.reject(db, invitation_id, user.id)
+    except Exception:
+        pass
+    return RedirectResponse("/social/friends", status_code=303)
+
+
+@router.post("/social/friends/{friend_id}/remove")
+def friends_remove_post(friend_id: str, request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    try:
+        FriendService.remove(db, friend_id, user.id)
+    except Exception:
+        pass
+    return RedirectResponse("/social/friends", status_code=303)
+
+
+# ── Rodzina ───────────────────────────────────────────────────────────────────
+
+def _get_family_context(db: Session, user_id: str) -> dict:
+    """Zwraca słownik z rodziną i oczekującym zaproszeniem dla danego użytkownika."""
+    accepted = db.query(FamilyMember).filter(
+        FamilyMember.user_id == user_id,
+        FamilyMember.status == "accepted",
+    ).first()
+    family = accepted.family if accepted else None
+
+    pending = db.query(FamilyMember).filter(
+        FamilyMember.user_id == user_id,
+        FamilyMember.status == "pending",
+    ).first()
+    return {"family": family, "pending_invitation": pending}
+
+
+@router.get("/social/family", response_class=HTMLResponse)
+def family_page(request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    ctx = _get_family_context(db, user.id)
+    return templates.TemplateResponse("social/family.html", {
+        "request": request, "user": user, "error": None, **ctx,
+    })
+
+
+@router.post("/social/family/create")
+def family_create_post(
+    request: Request,
+    name: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    try:
+        FamilyService.create(db, FamilyCreateRequest(name=name), user.id)
+        return RedirectResponse("/social/family", status_code=303)
+    except Exception as exc:
+        detail = getattr(exc, "detail", str(exc))
+        ctx = _get_family_context(db, user.id)
+        return templates.TemplateResponse("social/family.html", {
+            "request": request, "user": user, "error": detail, **ctx,
+        }, status_code=400)
+
+
+@router.post("/social/family/invite", response_class=HTMLResponse)
+def family_invite_post(
+    request: Request,
+    email: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse("", status_code=401)
+    membership = db.query(FamilyMember).filter(
+        FamilyMember.user_id == user.id,
+        FamilyMember.status == "accepted",
+    ).first()
+    if not membership:
+        return HTMLResponse('<p class="text-sm text-red-500 mt-1">Nie należysz do żadnej rodziny.</p>', status_code=400)
+    from app.schemas.social import FamilyInviteRequest
+    try:
+        FamilyService.invite(db, membership.family_id, email, user.id)
+        return HTMLResponse('<p class="text-sm text-green-600 font-medium mt-1">✓ Zaproszenie wysłane!</p>')
+    except Exception as exc:
+        detail = getattr(exc, "detail", str(exc))
+        return HTMLResponse(f'<p class="text-sm text-red-500 mt-1">{detail}</p>', status_code=400)
+
+
+@router.post("/social/family/accept/{member_id}")
+def family_accept_post(member_id: str, request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    try:
+        member = db.get(FamilyMember, member_id)
+        if member:
+            FamilyService.accept_membership(db, member.family_id, member_id, user.id)
+    except Exception:
+        pass
+    return RedirectResponse("/social/family", status_code=303)
+
+
+@router.post("/social/family/reject/{member_id}")
+def family_reject_post(member_id: str, request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    try:
+        member = db.get(FamilyMember, member_id)
+        if member and member.user_id == user.id:
+            db.delete(member)
+            db.commit()
+    except Exception:
+        pass
+    return RedirectResponse("/social/family", status_code=303)
