@@ -31,6 +31,9 @@ class Occasion(Base):
     recipient_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    family_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("families.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
@@ -41,6 +44,9 @@ class Occasion(Base):
     )
     recipient: Mapped["User"] = relationship(  # noqa: F821
         "User", foreign_keys=[recipient_id], back_populates="occasions_received"
+    )
+    family: Mapped["Family | None"] = relationship(  # noqa: F821
+        "Family", foreign_keys=[family_id]
     )
     items: Mapped[list["Item"]] = relationship(  # noqa: F821
         "Item", back_populates="occasion", cascade="all, delete-orphan"

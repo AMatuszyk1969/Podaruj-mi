@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Edytuj profil – Podaruj mi{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="/profile" class="text-gray-400 hover:text-brand-700 transition">
+    <svg width="24" height="24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <h1 class="text-xl font-bold text-brand-700">Edytuj profil</h1>
+</div>
+
+<!-- ── Avatar ─────────────────────────────────────────────────────────── -->
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+  <p class="text-sm font-semibold text-gray-700 mb-4">Zdjęcie profilowe</p>
+
+  <div class="flex items-center gap-5">
+    <!-- Podgląd aktualnego avatara -->
+    <div id="avatar-preview" class="flex-shrink-0">
+      {% if user.avatar_url %}
+      <img src="{{ user.avatar_url }}" alt="Avatar"
+           class="w-20 h-20 rounded-full object-cover border-2 border-brand-100"/>
+      {% else %}
+      <div class="w-20 h-20 rounded-full bg-brand-100 flex items-center justify-center text-2xl font-bold text-brand-700 select-none">
+        {{ user.first_name[0]|upper }}{{ user.last_name[0]|upper }}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="flex-1">
+      <form method="post" action="/profile/edit/avatar" enctype="multipart/form-data">
+        <label class="flex flex-col gap-2 cursor-pointer">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-gray-700">Wybierz plik</span>
+            <span class="text-xs text-gray-400">(JPG, PNG, WebP, GIF · max 2 MB)</span>
+          </div>
+          <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp,image/gif"
+                 class="block w-full text-sm text-gray-500
+                        file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-brand-50 file:text-brand-700
+                        hover:file:bg-brand-100 transition"/>
+        </label>
+        <button type="submit"
+                class="mt-3 bg-brand-700 hover:bg-brand-600 text-white text-sm font-semibold px-5 py-2 rounded-xl shadow transition">
+          Zapisz zdjęcie
+        </button>
+      </form>
+      {% if avatar_error is defined and avatar_error %}
+      <p class="text-sm text-red-500 mt-2">{{ avatar_error }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ── Dane osobowe ────────────────────────────────────────────────────── -->
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+  <p class="text-sm font-semibold text-gray-700 mb-4">Dane osobowe</p>
+
+  <form hx-post="/profile/edit/name"
+        hx-target="#name-result"
+        hx-swap="innerHTML"
+        class="flex flex-col gap-3">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Imię</label>
+        <input type="text" name="first_name" required
+               value="{{ user.first_name }}"
+               class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Nazwisko</label>
+        <input type="text" name="last_name" required
+               value="{{ user.last_name }}"
+               class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+      </div>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">E-mail</label>
+      <input type="text" value="{{ user.email }}" disabled
+             class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 text-gray-400 cursor-not-allowed"/>
+    </div>
+    <div class="flex items-center gap-3">
+      <button type="submit"
+              class="bg-brand-700 hover:bg-brand-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow transition">
+        Zapisz zmiany
+      </button>
+      <div id="name-result"></div>
+    </div>
+  </form>
+</div>
+
+<!-- ── Zmiana hasła ────────────────────────────────────────────────────── -->
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+  <p class="text-sm font-semibold text-gray-700 mb-4">Zmiana hasła</p>
+
+  <form hx-post="/profile/edit/password"
+        hx-target="#password-result"
+        hx-swap="innerHTML"
+        hx-on::after-request="if(event.detail.successful) this.reset()"
+        class="flex flex-col gap-3">
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Aktualne hasło</label>
+      <input type="password" name="current_password" required
+             placeholder="••••••••"
+             class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Nowe hasło</label>
+      <input type="password" name="new_password" required minlength="8"
+             placeholder="min. 8 znaków"
+             class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Potwierdź nowe hasło</label>
+      <input type="password" name="confirm_password" required minlength="8"
+             placeholder="••••••••"
+             class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+    </div>
+    <div class="flex items-center gap-3">
+      <button type="submit"
+              class="bg-brand-700 hover:bg-brand-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow transition">
+        Zmień hasło
+      </button>
+      <div id="password-result"></div>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

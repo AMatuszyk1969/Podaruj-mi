@@ -55,6 +55,14 @@ def _can_see(db: Session, occasion: Occasion, viewer_id: str) -> bool:
         return _are_friends(db, viewer_id, occasion.created_by_id) or \
                _are_friends(db, viewer_id, occasion.recipient_id)
     if occasion.visibility == "family":
+        if occasion.family_id:
+            # Konkretna rodzina – sprawdź czy oglądający należy do tej właśnie rodziny
+            return db.query(FamilyMember).filter(
+                FamilyMember.family_id == occasion.family_id,
+                FamilyMember.user_id == viewer_id,
+                FamilyMember.status == "accepted",
+            ).first() is not None
+        # Brak wybranej rodziny – stara logika: dowolna wspólna rodzina
         return _share_family(db, viewer_id, occasion.created_by_id) or \
                _share_family(db, viewer_id, occasion.recipient_id)
     return False

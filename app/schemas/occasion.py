@@ -18,6 +18,7 @@ class OccasionCreateRequest(BaseModel):
     pledge_deadline: datetime
     visibility: Visibility = "friends"
     recipient_id: str
+    family_id: str | None = None
 
     @model_validator(mode="after")
     def deadline_before_occasion(self) -> "OccasionCreateRequest":

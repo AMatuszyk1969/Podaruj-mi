@@ -105,14 +105,6 @@ class FamilyService:
 
     @staticmethod
     def create(db: Session, data: FamilyCreateRequest, user_id: str) -> FamilyResponse:
-        # Sprawdz czy uzytkownik juz nalezy do rodziny
-        existing = db.query(FamilyMember).filter(
-            FamilyMember.user_id == user_id, FamilyMember.status == "accepted"
-        ).first()
-        if existing:
-            raise HTTPException(status_code=409,
-                                detail="Juz nalezysz do grupy rodzinnej")
-
         family = Family(name=data.name, created_by_id=user_id)
         db.add(family)
         db.flush()

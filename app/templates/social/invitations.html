@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Zaproszenia – Podaruj mi{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-5">
+  <a href="/occasions" class="text-gray-400 hover:text-brand-700 transition">
+    <svg width="24" height="24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <h1 class="text-xl font-bold text-brand-700">Zaproszenia</h1>
+</div>
+
+{% if invitations %}
+
+<p class="text-sm text-gray-500 mb-4">
+  Poniższe osoby zaprosiły Cię do platformy Podaruj mi. Zaakceptuj lub odrzuć każde zaproszenie.
+</p>
+
+{% for inv in invitations %}
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-3">
+  <div class="flex items-center gap-3 mb-3">
+    {% if inv.inviter.avatar_url %}
+    <img src="{{ inv.inviter.avatar_url }}" alt="{{ inv.inviter.first_name }}"
+         class="w-10 h-10 rounded-full object-cover border border-gray-100 flex-shrink-0"/>
+    {% else %}
+    <div class="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 flex-shrink-0 select-none">
+      {{ inv.inviter.first_name[0]|upper }}{{ inv.inviter.last_name[0]|upper }}
+    </div>
+    {% endif %}
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-semibold text-gray-800">
+        {{ inv.inviter.first_name }} {{ inv.inviter.last_name }}
+      </p>
+      <p class="text-xs text-gray-500">
+        {% if inv.group_type == 'friend' %}
+          zaprasza Cię do swoich <strong>Znajomych</strong>
+        {% else %}
+          zaprasza Cię do grupy rodzinnej
+          <strong>{{ inv.family.name if inv.family else '–' }}</strong>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="flex gap-2">
+    <form method="post" action="/invitations/{{ inv.id }}/accept" class="flex-1">
+      <button type="submit"
+              class="w-full bg-brand-700 hover:bg-brand-600 text-white text-sm font-semibold py-2.5 rounded-xl shadow transition">
+        ✓ Dołącz
+      </button>
+    </form>
+    <form method="post" action="/invitations/{{ inv.id }}/decline">
+      <button type="submit"
+              class="bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-semibold py-2.5 px-4 rounded-xl transition">
+        Odrzuć
+      </button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="flex flex-col items-center text-center pt-10 pb-6">
+  <div class="text-5xl mb-4">🎉</div>
+  <p class="text-gray-500 text-sm">Brak oczekujących zaproszeń.</p>
+  <a href="/occasions" class="mt-4 text-brand-700 text-sm hover:underline">Przejdź do okazji →</a>
+</div>
+{% endif %}
+
+{% endblock %}

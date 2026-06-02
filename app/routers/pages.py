@@ -2,7 +2,7 @@
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -17,7 +17,14 @@ from app.schemas.auth import LoginRequest, RegisterRequest
 from app.schemas.item import ItemCreateRequest
 from app.schemas.occasion import OccasionCreateRequest
 from app.schemas.social import FamilyCreateRequest, PledgeCreateRequest
+from app.models.pending_invitation import PendingInvitation
 from app.services.auth_service import AuthService
+from app.services.email_service import (
+    send_family_invitation_email,
+    send_friend_invitation_email,
+    send_platform_invitation_email,
+)
+from app.utils.security import hash_password, verify_password
 from app.services.occasion_service import ItemService, OccasionService, PledgeService
 from app.services.social_service import FamilyService, FriendService
 from app.utils.cookie_auth import get_user_from_cookie
@@ -69,7 +76,14 @@ def login_post(
 ):
     try:
         token = AuthService.login(db, LoginRequest(email=email, password=password))
-        resp = RedirectResponse("/occasions", status_code=303)
+        # Sprawdź czy są oczekujące zaproszenia do platformy
+        from app.models.user import User as UserModel
+        logged_user = db.query(UserModel).filter(UserModel.email == email).first()
+        has_pending = logged_user and db.query(PendingInvitation).filter(
+            PendingInvitation.invited_email == logged_user.email
+        ).first()
+        redirect_url = "/invitations" if has_pending else "/occasions"
+        resp = RedirectResponse(redirect_url, status_code=303)
         _set_token_cookie(resp, token.access_token)
         return resp
     except Exception:
@@ -200,22 +214,48 @@ def reset_password_post(
 
 @router.get("/recipients/search", response_class=HTMLResponse)
 def recipients_search(request: Request, q: str = "", db: Session = Depends(get_db)):
+    """Wyszukiwanie ograniczone do znajomych i rodziny aktualnego użytkownika."""
     user = get_user_from_cookie(request, db)
     if not user:
         return HTMLResponse("", status_code=401)
 
     from app.models.user import User as UserModel
+    from app.models.friendship import Friendship as FriendshipModel
     from sqlalchemy import or_, func
 
+    # Zbierz dozwolone ID: znajomi + rodzina
+    friend_ids: set[str] = set()
+    for f in db.query(FriendshipModel).filter(
+        FriendshipModel.requester_id == user.id, FriendshipModel.status == "accepted"
+    ).all():
+        friend_ids.add(f.addressee_id)
+    for f in db.query(FriendshipModel).filter(
+        FriendshipModel.addressee_id == user.id, FriendshipModel.status == "accepted"
+    ).all():
+        friend_ids.add(f.requester_id)
+
+    family_ids: set[str] = set()
+    mem = db.query(FamilyMember).filter(
+        FamilyMember.user_id == user.id, FamilyMember.status == "accepted"
+    ).first()
+    if mem:
+        for fm in db.query(FamilyMember).filter(
+            FamilyMember.family_id == mem.family_id,
+            FamilyMember.status == "accepted",
+            FamilyMember.user_id != user.id,
+        ).all():
+            family_ids.add(fm.user_id)
+
+    allowed_ids = friend_ids | family_ids
     results = []
     query = q.strip()
-    if len(query) >= 2:
+    if len(query) >= 2 and allowed_ids:
         pattern = f"%{query}%"
         results = (
             db.query(UserModel)
             .filter(
                 UserModel.is_active == True,  # noqa: E712
-                UserModel.id != user.id,
+                UserModel.id.in_(allowed_ids),
                 or_(
                     UserModel.email.ilike(pattern),
                     func.lower(
@@ -255,8 +295,36 @@ def occasions_new_page(request: Request, db: Session = Depends(get_db)):
     user = get_user_from_cookie(request, db)
     if not user:
         return RedirectResponse("/login", status_code=303)
+
+    friends = FriendService.list_friends(db, user.id)
+
+    # Zbierz członków ze WSZYSTKICH rodzin użytkownika, pogrupowane po nazwie rodziny.
+    # Deduplikacja: pomiń siebie i osoby już widoczne jako znajomi.
+    seen_ids = {user.id} | {f.id for f in friends}
+    all_memberships = db.query(FamilyMember).filter(
+        FamilyMember.user_id == user.id,
+        FamilyMember.status == "accepted",
+    ).all()
+    family_groups = []  # lista (nazwa_rodziny, [User, ...])
+    for m in all_memberships:
+        fms = db.query(FamilyMember).filter(
+            FamilyMember.family_id == m.family_id,
+            FamilyMember.status == "accepted",
+            FamilyMember.user_id.notin_(seen_ids),
+        ).all()
+        members = [fm.user for fm in fms]
+        if members:
+            family_groups.append((m.family.name, members))
+            seen_ids.update(fm.user_id for fm in fms)
+
+    # Lista (id, nazwa) wszystkich rodzin użytkownika do pickera widoczności
+    user_families = [(m.family_id, m.family.name) for m in all_memberships]
+
     return templates.TemplateResponse("occasions/create.html", {
         "request": request, "user": user, "error": None,
+        "friends": friends,
+        "family_groups": family_groups,
+        "user_families": user_families,
     })
 
 
@@ -270,6 +338,7 @@ def occasions_new_post(
     visibility: str = Form("friends"),
     recipient_id: str = Form(...),
     description: str = Form(""),
+    family_id: str = Form(default=""),
     db: Session = Depends(get_db),
 ):
     user = get_user_from_cookie(request, db)
@@ -282,6 +351,7 @@ def occasions_new_post(
             title=title,
             description=description or None,
             occasion_type=occasion_type,
+            family_id=family_id if (visibility == "family" and family_id) else None,
             occasion_date=date.fromisoformat(occasion_date),
             pledge_deadline=deadline_dt,
             visibility=visibility,
@@ -437,7 +507,7 @@ def friends_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/social/friends/invite", response_class=HTMLResponse)
-def friends_invite_post(
+async def friends_invite_post(
     request: Request,
     email: str = Form(...),
     db: Session = Depends(get_db),
@@ -446,11 +516,26 @@ def friends_invite_post(
     if not user:
         return HTMLResponse("", status_code=401)
     try:
-        FriendService.invite(db, email, user.id)
+        invitation = FriendService.invite(db, email, user.id)
+        app_url = str(request.base_url).rstrip("/")
+        await send_friend_invitation_email(
+            recipient_email=invitation.addressee.email,
+            recipient_name=invitation.addressee.first_name,
+            inviter_name=f"{user.first_name} {user.last_name}",
+            app_url=app_url,
+        )
         return HTMLResponse('<p class="text-sm text-green-600 font-medium mt-1">✓ Zaproszenie wysłane!</p>')
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return templates.TemplateResponse("partials/invite_confirm.html", {
+                "request": request, "email": email,
+                "group_type": "friend", "group_label": "Znajomi",
+                "family_id": None, "target_id": "invite-result",
+            })
+        return HTMLResponse(f'<p class="text-sm text-red-500 mt-1">{exc.detail}</p>')
     except Exception as exc:
         detail = getattr(exc, "detail", str(exc))
-        return HTMLResponse(f'<p class="text-sm text-red-500 mt-1">{detail}</p>', status_code=400)
+        return HTMLResponse(f'<p class="text-sm text-red-500 mt-1">{detail}</p>')
 
 
 @router.post("/social/friends/invitations/{invitation_id}/accept")
@@ -492,18 +577,18 @@ def friends_remove_post(friend_id: str, request: Request, db: Session = Depends(
 # ── Rodzina ───────────────────────────────────────────────────────────────────
 
 def _get_family_context(db: Session, user_id: str) -> dict:
-    """Zwraca słownik z rodziną i oczekującym zaproszeniem dla danego użytkownika."""
-    accepted = db.query(FamilyMember).filter(
+    """Zwraca słownik ze wszystkimi rodzinami i oczekującymi zaproszeniami użytkownika."""
+    memberships = db.query(FamilyMember).filter(
         FamilyMember.user_id == user_id,
         FamilyMember.status == "accepted",
-    ).first()
-    family = accepted.family if accepted else None
+    ).all()
+    families = [m.family for m in memberships]
 
-    pending = db.query(FamilyMember).filter(
+    pending_invitations = db.query(FamilyMember).filter(
         FamilyMember.user_id == user_id,
         FamilyMember.status == "pending",
-    ).first()
-    return {"family": family, "pending_invitation": pending}
+    ).all()
+    return {"families": families, "pending_invitations": pending_invitations}
 
 
 @router.get("/social/family", response_class=HTMLResponse)
@@ -538,9 +623,10 @@ def family_create_post(
 
 
 @router.post("/social/family/invite", response_class=HTMLResponse)
-def family_invite_post(
+async def family_invite_post(
     request: Request,
     email: str = Form(...),
+    family_id: str = Form(...),
     db: Session = Depends(get_db),
 ):
     user = get_user_from_cookie(request, db)
@@ -548,17 +634,39 @@ def family_invite_post(
         return HTMLResponse("", status_code=401)
     membership = db.query(FamilyMember).filter(
         FamilyMember.user_id == user.id,
+        FamilyMember.family_id == family_id,
         FamilyMember.status == "accepted",
     ).first()
     if not membership:
-        return HTMLResponse('<p class="text-sm text-red-500 mt-1">Nie należysz do żadnej rodziny.</p>', status_code=400)
-    from app.schemas.social import FamilyInviteRequest
+        return HTMLResponse('<p class="text-sm text-red-500 mt-1">Brak dostępu do tej grupy rodzinnej.</p>')
+    target_id = f"family-invite-result-{family_id}"
+    from app.models.user import User as UserModel
     try:
-        FamilyService.invite(db, membership.family_id, email, user.id)
+        FamilyService.invite(db, family_id, email, user.id)
+        invitee = db.query(UserModel).filter(UserModel.email == email).first()
+        if invitee:
+            app_url = str(request.base_url).rstrip("/")
+            await send_family_invitation_email(
+                recipient_email=invitee.email,
+                recipient_name=invitee.first_name,
+                inviter_name=f"{user.first_name} {user.last_name}",
+                family_name=membership.family.name,
+                app_url=app_url,
+            )
         return HTMLResponse('<p class="text-sm text-green-600 font-medium mt-1">✓ Zaproszenie wysłane!</p>')
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return templates.TemplateResponse("partials/invite_confirm.html", {
+                "request": request, "email": email,
+                "group_type": "family",
+                "group_label": f'Rodzina "{membership.family.name}"',
+                "family_id": family_id,
+                "target_id": target_id,
+            })
+        return HTMLResponse(f'<p class="text-sm text-red-500 mt-1">{exc.detail}</p>')
     except Exception as exc:
         detail = getattr(exc, "detail", str(exc))
-        return HTMLResponse(f'<p class="text-sm text-red-500 mt-1">{detail}</p>', status_code=400)
+        return HTMLResponse(f'<p class="text-sm text-red-500 mt-1">{detail}</p>')
 
 
 @router.post("/social/family/accept/{member_id}")
@@ -575,6 +683,147 @@ def family_accept_post(member_id: str, request: Request, db: Session = Depends(g
     return RedirectResponse("/social/family", status_code=303)
 
 
+# ── Zaproszenia do platformy (dla niezarejestrowanych) ───────────────────────
+
+@router.post("/social/invite-platform", response_class=HTMLResponse)
+async def invite_platform_post(
+    request: Request,
+    email: str = Form(...),
+    group_type: str = Form(...),
+    family_id: str = Form(default=""),
+    target_id: str = Form(default="invite-result"),
+    db: Session = Depends(get_db),
+):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse("", status_code=401)
+
+    # Sprawdź czy zaproszenie już zostało wysłane
+    existing = db.query(PendingInvitation).filter(
+        PendingInvitation.invited_email == email,
+        PendingInvitation.inviter_id == user.id,
+        PendingInvitation.group_type == group_type,
+    ).first()
+    if existing:
+        return HTMLResponse(
+            '<p class="text-sm text-amber-600 mt-1">Zaproszenie zostało już wysłane. Oczekuje na rejestrację.</p>'
+        )
+
+    # Pobierz dane rodziny jeśli potrzeba
+    family_obj = None
+    if group_type == "family":
+        if not family_id:
+            return HTMLResponse('<p class="text-sm text-red-500 mt-1">Nie podano grupy rodzinnej.</p>')
+        membership = db.query(FamilyMember).filter(
+            FamilyMember.user_id == user.id,
+            FamilyMember.family_id == family_id,
+            FamilyMember.status == "accepted",
+        ).first()
+        if not membership:
+            return HTMLResponse('<p class="text-sm text-red-500 mt-1">Brak dostępu do tej grupy rodzinnej.</p>')
+        family_obj = membership.family
+
+    # Utwórz rekord zaproszenia
+    inv = PendingInvitation(
+        invited_email=email,
+        inviter_id=user.id,
+        group_type=group_type,
+        family_id=family_id or None,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+    )
+    db.add(inv)
+    db.commit()
+
+    # Wyślij e-mail
+    base_url = str(request.base_url).rstrip("/")
+    await send_platform_invitation_email(
+        recipient_email=email,
+        inviter_name=f"{user.first_name} {user.last_name}",
+        group_type=group_type,
+        family_name=family_obj.name if family_obj else None,
+        register_url=f"{base_url}/register",
+    )
+    return HTMLResponse('<p class="text-sm text-green-600 font-medium mt-1">✓ Zaproszenie do platformy zostało wysłane!</p>')
+
+
+@router.get("/invitations", response_class=HTMLResponse)
+def invitations_page(request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    invitations = db.query(PendingInvitation).filter(
+        PendingInvitation.invited_email == user.email,
+    ).all()
+    return templates.TemplateResponse("social/invitations.html", {
+        "request": request, "user": user, "invitations": invitations,
+    })
+
+
+@router.post("/invitations/{inv_id}/accept")
+def invitation_accept(inv_id: str, request: Request, db: Session = Depends(get_db)):
+    from app.models.friendship import Friendship as FriendshipModel
+    from datetime import timezone as _tz
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+
+    inv = db.get(PendingInvitation, inv_id)
+    if not inv or inv.invited_email != user.email:
+        return RedirectResponse("/invitations", status_code=303)
+
+    try:
+        if inv.group_type == "friend":
+            exists = db.query(FriendshipModel).filter(
+                (
+                    (FriendshipModel.requester_id == inv.inviter_id) &
+                    (FriendshipModel.addressee_id == user.id)
+                ) | (
+                    (FriendshipModel.requester_id == user.id) &
+                    (FriendshipModel.addressee_id == inv.inviter_id)
+                )
+            ).first()
+            if not exists:
+                from app.models.friendship import Friendship as Fr
+                db.add(Fr(requester_id=inv.inviter_id, addressee_id=user.id, status="accepted"))
+
+        elif inv.group_type == "family" and inv.family_id:
+            exists = db.query(FamilyMember).filter(
+                FamilyMember.family_id == inv.family_id,
+                FamilyMember.user_id == user.id,
+            ).first()
+            if not exists:
+                db.add(FamilyMember(
+                    family_id=inv.family_id, user_id=user.id,
+                    status="accepted",
+                    joined_at=datetime.now(timezone.utc),
+                ))
+
+        db.delete(inv)
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    remaining = db.query(PendingInvitation).filter(
+        PendingInvitation.invited_email == user.email
+    ).count()
+    return RedirectResponse("/invitations" if remaining else "/occasions", status_code=303)
+
+
+@router.post("/invitations/{inv_id}/decline")
+def invitation_decline(inv_id: str, request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    inv = db.get(PendingInvitation, inv_id)
+    if inv and inv.invited_email == user.email:
+        db.delete(inv)
+        db.commit()
+    remaining = db.query(PendingInvitation).filter(
+        PendingInvitation.invited_email == user.email
+    ).count()
+    return RedirectResponse("/invitations" if remaining else "/occasions", status_code=303)
+
+
 @router.post("/social/family/reject/{member_id}")
 def family_reject_post(member_id: str, request: Request, db: Session = Depends(get_db)):
     user = get_user_from_cookie(request, db)
@@ -588,3 +837,94 @@ def family_reject_post(member_id: str, request: Request, db: Session = Depends(g
     except Exception:
         pass
     return RedirectResponse("/social/family", status_code=303)
+
+
+# ── Edycja profilu ────────────────────────────────────────────────────────────
+
+@router.get("/profile/edit", response_class=HTMLResponse)
+def profile_edit_page(request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    return templates.TemplateResponse("profile/edit.html", {
+        "request": request, "user": user,
+    })
+
+
+@router.post("/profile/edit/name", response_class=HTMLResponse)
+def profile_edit_name(
+    request: Request,
+    first_name: str = Form(...),
+    last_name: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse("", status_code=401)
+    first_name = first_name.strip()
+    last_name = last_name.strip()
+    if not first_name or not last_name:
+        return HTMLResponse('<p class="text-sm text-red-500">Imię i nazwisko nie mogą być puste.</p>')
+    user.first_name = first_name
+    user.last_name = last_name
+    db.commit()
+    return HTMLResponse('<p class="text-sm text-green-600 font-medium">✓ Dane zostały zapisane.</p>')
+
+
+@router.post("/profile/edit/password", response_class=HTMLResponse)
+def profile_edit_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse("", status_code=401)
+    if not verify_password(current_password, user.hashed_password):
+        return HTMLResponse('<p class="text-sm text-red-500">Nieprawidłowe aktualne hasło.</p>')
+    if new_password != confirm_password:
+        return HTMLResponse('<p class="text-sm text-red-500">Nowe hasła nie są identyczne.</p>')
+    if len(new_password) < 8:
+        return HTMLResponse('<p class="text-sm text-red-500">Hasło musi mieć minimum 8 znaków.</p>')
+    user.hashed_password = hash_password(new_password)
+    db.commit()
+    return HTMLResponse('<p class="text-sm text-green-600 font-medium">✓ Hasło zostało zmienione.</p>')
+
+
+@router.post("/profile/edit/avatar")
+async def profile_edit_avatar(
+    request: Request,
+    avatar: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    import imghdr, os, uuid as _uuid
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+
+    content = await avatar.read()
+    if len(content) > 2 * 1024 * 1024:
+        return templates.TemplateResponse("profile/edit.html", {
+            "request": request, "user": user,
+            "avatar_error": "Plik za duży (max 2 MB).",
+        })
+
+    img_type = imghdr.what(None, h=content[:32])
+    if img_type not in ("jpeg", "png", "gif", "webp"):
+        return templates.TemplateResponse("profile/edit.html", {
+            "request": request, "user": user,
+            "avatar_error": "Dozwolone formaty: JPG, PNG, WebP, GIF.",
+        })
+
+    filename = f"{_uuid.uuid4()}.{img_type}"
+    static_dir = "frontend/static/avatars"
+    os.makedirs(static_dir, exist_ok=True)
+    with open(f"{static_dir}/{filename}", "wb") as f:
+        f.write(content)
+
+    base_url = str(request.base_url).rstrip("/")
+    user.avatar_url = f"{base_url}/static/avatars/{filename}"
+    db.commit()
+    return RedirectResponse("/profile/edit", status_code=303)

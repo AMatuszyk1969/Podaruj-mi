@@ -24,15 +24,29 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Rodzaj okazji</label>
-      <select name="occasion_type"
-              class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
-        <option value="birthday">🎂 Urodziny</option>
-        <option value="name_day">🌸 Imieniny</option>
-        <option value="christmas">🎄 Boże Narodzenie</option>
-        <option value="anniversary">💍 Rocznica</option>
-        <option value="other">🎁 Inna</option>
-      </select>
+      <label class="block text-sm font-medium text-gray-700 mb-2">Rodzaj okazji</label>
+      <div class="flex flex-wrap gap-2">
+        <label class="cursor-pointer">
+          <input type="radio" name="occasion_type" value="birthday" class="sr-only peer" checked/>
+          <span class="peer-checked:bg-brand-700 peer-checked:text-white peer-checked:border-brand-700 border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:border-brand-700 transition select-none block">🎂 Urodziny</span>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="occasion_type" value="name_day" class="sr-only peer"/>
+          <span class="peer-checked:bg-brand-700 peer-checked:text-white peer-checked:border-brand-700 border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:border-brand-700 transition select-none block">🌸 Imieniny</span>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="occasion_type" value="christmas" class="sr-only peer"/>
+          <span class="peer-checked:bg-brand-700 peer-checked:text-white peer-checked:border-brand-700 border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:border-brand-700 transition select-none block">🎄 Boże Narodzenie</span>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="occasion_type" value="anniversary" class="sr-only peer"/>
+          <span class="peer-checked:bg-brand-700 peer-checked:text-white peer-checked:border-brand-700 border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:border-brand-700 transition select-none block">💍 Rocznica</span>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="occasion_type" value="other" class="sr-only peer"/>
+          <span class="peer-checked:bg-brand-700 peer-checked:text-white peer-checked:border-brand-700 border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:border-brand-700 transition select-none block">🎁 Inna</span>
+        </label>
+      </div>
     </div>
 
     <div>
@@ -49,75 +63,196 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Widoczność</label>
-      <select name="visibility"
-              class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
-        <option value="friends">👥 Tylko znajomi</option>
-        <option value="family">👨‍👩‍👧 Tylko rodzina</option>
-        <option value="public">🌍 Wszyscy</option>
-      </select>
+      <label class="block text-sm font-medium text-gray-700 mb-2">Widoczność</label>
+      <div class="flex flex-wrap gap-2">
+        <label class="cursor-pointer">
+          <input type="radio" name="visibility" value="friends" class="sr-only peer" checked/>
+          <span class="peer-checked:bg-brand-700 peer-checked:text-white peer-checked:border-brand-700 border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:border-brand-700 transition select-none block">👥 Znajomi</span>
+        </label>
+        {% if user_families %}
+        <label class="cursor-pointer">
+          <input type="radio" name="visibility" value="family" class="sr-only peer"/>
+          <span class="peer-checked:bg-brand-700 peer-checked:text-white peer-checked:border-brand-700 border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:border-brand-700 transition select-none block">👨‍👩‍👧 Rodzina</span>
+        </label>
+        {% endif %}
+        <label class="cursor-pointer">
+          <input type="radio" name="visibility" value="public" class="sr-only peer"/>
+          <span class="peer-checked:bg-brand-700 peer-checked:text-white peer-checked:border-brand-700 border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 hover:border-brand-700 transition select-none block">🌍 Wszyscy</span>
+        </label>
+      </div>
+
+      {% if user_families|length == 1 %}
+      <!-- Jedna rodzina – ukryte pole, brak dodatkowego wyboru -->
+      <input type="hidden" name="family_id" value="{{ user_families[0][0] }}"/>
+      {% elif user_families|length > 1 %}
+      <!-- Wiele rodzin – picker pokazywany gdy wybrano "Rodzina" -->
+      <div id="family-visibility-picker" class="hidden mt-3 bg-gray-50 border border-gray-200 rounded-xl p-3">
+        <p class="text-xs font-medium text-gray-500 mb-2">Która rodzina zobaczy tę okazję?</p>
+        <div class="flex flex-wrap gap-2">
+          {% for fid, fname in user_families %}
+          <label class="cursor-pointer">
+            <input type="radio" name="family_id" value="{{ fid }}" class="sr-only peer"
+                   {% if loop.first %}checked{% endif %}/>
+            <span class="peer-checked:bg-brand-700 peer-checked:text-white peer-checked:border-brand-700 border border-gray-300 rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:border-brand-700 transition select-none block">
+              👨‍👩‍👧 {{ fname }}
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
     </div>
 
+    <!-- Osoba obdarowywana -->
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Osoba obdarowywana</label>
+      <label class="block text-sm font-medium text-gray-700 mb-2">Osoba obdarowywana</label>
 
-      <!-- Ukryte pole z ID – wysyłane w formularzu -->
       <input type="hidden" name="recipient_id" id="recipient_id" required/>
 
-      <!-- Wybrany użytkownik – widoczny po wyborze -->
+      <!-- Wybrany użytkownik -->
       <div id="recipient-chosen" class="hidden mb-2 flex items-center gap-2 bg-brand-50 border border-brand-200 rounded-xl px-3 py-2.5">
-        <div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 flex-shrink-0" id="recipient-initials"></div>
+        <div id="recipient-avatar-wrap" class="flex-shrink-0">
+          <div id="recipient-initials" class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700"></div>
+          <img id="recipient-img" src="" alt="" class="hidden w-8 h-8 rounded-full object-cover"/>
+        </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-gray-800" id="recipient-name"></p>
-          <p class="text-xs text-gray-400" id="recipient-email"></p>
+          <p class="text-xs text-gray-400" id="recipient-label"></p>
         </div>
         <button type="button" onclick="clearRecipient()" class="text-gray-400 hover:text-red-500 text-lg leading-none">✕</button>
       </div>
 
-      <!-- Pole wyszukiwania -->
-      <div id="recipient-search-box">
-        <input type="text" id="recipient-search"
-               placeholder="Wpisz imię, nazwisko lub e-mail…"
-               autocomplete="off"
-               hx-get="/recipients/search"
-               hx-trigger="input changed delay:300ms"
-               hx-target="#recipient-results"
-               hx-include="[id='recipient-search']"
-               name="q"
-               class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/>
+      <!-- Lista osób -->
+      <div id="recipient-picker" class="border border-gray-200 rounded-xl overflow-hidden bg-white divide-y divide-gray-50">
 
-        <!-- Dropdown wyników -->
-        <div id="recipient-results"
-             class="mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden empty:hidden">
-        </div>
-
-        <!-- Szybki skrót: ja sam -->
+        <!-- Ja sam/a -->
         <button type="button"
-                onclick="selectRecipient('{{ user.id }}', '{{ user.first_name }} {{ user.last_name }}', '{{ user.email }}')"
-                class="mt-1.5 text-xs text-brand-700 hover:underline">
-          Wybierz mnie (jestem solenizantem)
+                onclick="selectRecipient('{{ user.id }}', '{{ user.first_name }} {{ user.last_name }}', 'Ja sam/a', '{{ user.avatar_url or '' }}')"
+                class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-brand-50 text-left transition">
+          {% if user.avatar_url %}
+          <img src="{{ user.avatar_url }}" class="w-8 h-8 rounded-full object-cover flex-shrink-0"/>
+          {% else %}
+          <div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 flex-shrink-0">
+            {{ user.first_name[0]|upper }}{{ user.last_name[0]|upper }}
+          </div>
+          {% endif %}
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">{{ user.first_name }} {{ user.last_name }}</p>
+            <p class="text-xs text-gray-400">Ja sam/a – twórca okazji</p>
+          </div>
         </button>
+
+        {% if friends %}
+        <div class="px-3 py-1.5 bg-gray-50">
+          <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider">Znajomi</p>
+        </div>
+        {% for f in friends %}
+        <button type="button"
+                onclick="selectRecipient('{{ f.id }}', '{{ f.first_name }} {{ f.last_name }}', 'Znajomy', '{{ f.avatar_url or '' }}')"
+                class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-brand-50 text-left transition">
+          {% if f.avatar_url %}
+          <img src="{{ f.avatar_url }}" class="w-8 h-8 rounded-full object-cover flex-shrink-0"/>
+          {% else %}
+          <div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 flex-shrink-0">
+            {{ f.first_name[0]|upper }}{{ f.last_name[0]|upper }}
+          </div>
+          {% endif %}
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">{{ f.first_name }} {{ f.last_name }}</p>
+            <p class="text-xs text-gray-400 truncate">{{ f.email }}</p>
+          </div>
+        </button>
+        {% endfor %}
+        {% endif %}
+
+        {% for family_name, members in family_groups %}
+        <div class="px-3 py-1.5 bg-gray-50 flex items-center gap-1.5">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-400" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 22V12h6v10"/>
+          </svg>
+          <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider">{{ family_name }}</p>
+        </div>
+        {% for m in members %}
+        <button type="button"
+                data-id="{{ m.id }}"
+                data-name="{{ m.first_name }} {{ m.last_name }}"
+                data-label="Rodzina: {{ family_name }}"
+                data-avatar="{{ m.avatar_url or '' }}"
+                onclick="selectRecipient(this.dataset.id, this.dataset.name, this.dataset.label, this.dataset.avatar)"
+                class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-brand-50 text-left transition">
+          {% if m.avatar_url %}
+          <img src="{{ m.avatar_url }}" class="w-8 h-8 rounded-full object-cover flex-shrink-0"/>
+          {% else %}
+          <div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 flex-shrink-0">
+            {{ m.first_name[0]|upper }}{{ m.last_name[0]|upper }}
+          </div>
+          {% endif %}
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">{{ m.first_name }} {{ m.last_name }}</p>
+            <p class="text-xs text-gray-400 truncate">{{ m.email }}</p>
+          </div>
+        </button>
+        {% endfor %}
+        {% endfor %}
+
+        {% if not friends and not family_groups %}
+        <div class="px-3 py-4 text-center">
+          <p class="text-sm text-gray-400">
+            Tylko Ty jesteś dostępna/y jako obdarowywana osoba.<br/>
+            <a href="/social/friends" class="text-brand-700 hover:underline">Dodaj znajomych</a>
+            lub
+            <a href="/social/family" class="text-brand-700 hover:underline">utwórz rodzinę</a>,
+            aby wybierać spośród więcej osób.
+          </p>
+        </div>
+        {% endif %}
+
       </div>
     </div>
 
     <script>
-      function selectRecipient(id, name, email) {
+      function selectRecipient(id, name, label, avatarUrl) {
         document.getElementById('recipient_id').value = id;
         document.getElementById('recipient-name').textContent = name;
-        document.getElementById('recipient-email').textContent = email;
-        var initials = name.split(' ').map(function(w){ return w[0] || ''; }).join('').slice(0,2).toUpperCase();
-        document.getElementById('recipient-initials').textContent = initials;
+        document.getElementById('recipient-label').textContent = label;
+
+        var initialsEl = document.getElementById('recipient-initials');
+        var imgEl     = document.getElementById('recipient-img');
+        if (avatarUrl) {
+          imgEl.src = avatarUrl;
+          imgEl.classList.remove('hidden');
+          initialsEl.classList.add('hidden');
+        } else {
+          var initials = name.split(' ').map(function(w){ return w[0] || ''; }).join('').slice(0,2).toUpperCase();
+          initialsEl.textContent = initials;
+          initialsEl.classList.remove('hidden');
+          imgEl.classList.add('hidden');
+        }
+
         document.getElementById('recipient-chosen').classList.remove('hidden');
-        document.getElementById('recipient-search-box').classList.add('hidden');
-        document.getElementById('recipient-results').innerHTML = '';
+        document.getElementById('recipient-picker').classList.add('hidden');
       }
+
       function clearRecipient() {
         document.getElementById('recipient_id').value = '';
-        document.getElementById('recipient-search').value = '';
-        document.getElementById('recipient-results').innerHTML = '';
         document.getElementById('recipient-chosen').classList.add('hidden');
-        document.getElementById('recipient-search-box').classList.remove('hidden');
+        document.getElementById('recipient-picker').classList.remove('hidden');
       }
+
+      // Pokaż/ukryj picker rodziny w zależności od wybranej widoczności
+      (function() {
+        var picker = document.getElementById('family-visibility-picker');
+        if (!picker) return;
+        function togglePicker() {
+          var checked = document.querySelector('input[name="visibility"]:checked');
+          picker.classList.toggle('hidden', !checked || checked.value !== 'family');
+        }
+        document.querySelectorAll('input[name="visibility"]').forEach(function(r) {
+          r.addEventListener('change', togglePicker);
+        });
+        togglePicker();
+      })();
     </script>
 
     <div>
@@ -128,7 +263,7 @@
 
     <button type="submit"
             class="w-full bg-brand-700 hover:bg-brand-600 text-white font-semibold py-3 rounded-xl shadow transition mt-2">
-      Utwórz okazję
+      + Utwórz okazję
     </button>
   </form>
 </div>

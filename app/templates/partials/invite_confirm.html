@@ -1,0 +1,28 @@
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-1">
+  <p class="text-sm font-semibold text-gray-800 mb-1">Brak konta w Podaruj mi</p>
+  <p class="text-sm text-gray-600 mb-3">
+    Adres <strong>{{ email }}</strong> nie jest zarejestrowany w aplikacji.<br/>
+    Chcesz wysłać zaproszenie do dołączenia do platformy i grupy
+    <strong>{{ group_label }}</strong>?
+  </p>
+  <form hx-post="/social/invite-platform"
+        hx-target="#{{ target_id }}"
+        hx-swap="innerHTML"
+        class="flex gap-2">
+    <input type="hidden" name="email"      value="{{ email }}"/>
+    <input type="hidden" name="group_type" value="{{ group_type }}"/>
+    <input type="hidden" name="target_id"  value="{{ target_id }}"/>
+    {% if family_id %}
+    <input type="hidden" name="family_id"  value="{{ family_id }}"/>
+    {% endif %}
+    <button type="submit"
+            class="text-sm font-semibold bg-brand-700 hover:bg-brand-600 text-white px-4 py-2 rounded-xl shadow transition">
+      Wyślij zaproszenie
+    </button>
+    <button type="button"
+            onclick="document.getElementById('{{ target_id }}').innerHTML=''"
+            class="text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-xl transition">
+      Anuluj
+    </button>
+  </form>
+</div>

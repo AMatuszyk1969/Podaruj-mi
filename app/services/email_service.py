@@ -69,6 +69,91 @@ Zespol {settings.APP_NAME}
         logger.error("Blad wysylki e-mail resetu hasla do %s: %s", email, exc)
 
 
+async def send_friend_invitation_email(
+    recipient_email: str, recipient_name: str, inviter_name: str, app_url: str
+) -> None:
+    message = MessageSchema(
+        subject=f"{inviter_name} zaprasza Cię do znajomych w {settings.APP_NAME}",
+        recipients=[recipient_email],
+        body=f"""Cześć {recipient_name}!
+
+{inviter_name} wysłał(-a) Ci zaproszenie do znajomych w {settings.APP_NAME}.
+
+Zaloguj się i zaakceptuj lub odrzuć zaproszenie:
+{app_url}/social/friends
+
+Pozdrawiamy,
+Zespół {settings.APP_NAME}
+""",
+        subtype=MessageType.plain,
+    )
+    try:
+        await _fm.send_message(message)
+    except Exception as exc:
+        logger.error("Błąd wysyłki zaproszenia do znajomych do %s: %s", recipient_email, exc)
+
+
+async def send_family_invitation_email(
+    recipient_email: str, recipient_name: str, inviter_name: str,
+    family_name: str, app_url: str
+) -> None:
+    message = MessageSchema(
+        subject=f'Zaproszenie do rodziny "{family_name}" w {settings.APP_NAME}',
+        recipients=[recipient_email],
+        body=f"""Cześć {recipient_name}!
+
+{inviter_name} zaprasza Cie do grupy rodzinnej "{family_name}" w {settings.APP_NAME}.
+
+Zaloguj się i dołącz do rodziny:
+{app_url}/social/family
+
+Pozdrawiamy,
+Zespół {settings.APP_NAME}
+""",
+        subtype=MessageType.plain,
+    )
+    try:
+        await _fm.send_message(message)
+    except Exception as exc:
+        logger.error("Błąd wysyłki zaproszenia do rodziny do %s: %s", recipient_email, exc)
+
+
+async def send_platform_invitation_email(
+    recipient_email: str, inviter_name: str, group_type: str,
+    family_name: str | None, register_url: str,
+) -> None:
+    if group_type == "friend":
+        group_desc = "do swoich Znajomych"
+    else:
+        group_desc = f'do grupy rodzinnej "{family_name}"'
+
+    message = MessageSchema(
+        subject=f"{inviter_name} zaprasza Cie do aplikacji Podaruj mi",
+        recipients=[recipient_email],
+        body=f"""Czesc!
+
+{inviter_name} zaprasza Cie {group_desc} w aplikacji Podaruj mi.
+
+Podaruj mi to platforma do koordynacji prezentow - tworzysz listy zyczen,
+znajomi zapisuja sie co kupic, bez duplikatow i niespodzianek.
+
+Zarejestruj sie i dolacz do grupy:
+{register_url}
+
+Zaproszenie jest wazne 7 dni. Po rejestracji zobaczysz je w zakladce
+Zaproszenia i bedziesz mogl/mogla je zaakceptowac lub odrzucic.
+
+Pozdrawiamy,
+Zespol Podaruj mi
+""",
+        subtype=MessageType.plain,
+    )
+    try:
+        await _fm.send_message(message)
+    except Exception as exc:
+        logger.error("Blad wysylki zaproszenia do platformy do %s: %s", recipient_email, exc)
+
+
 async def send_deadline_reminder(email: str, first_name: str, occasion_title: str,
                                   occasion_url: str) -> None:
     message = MessageSchema(
