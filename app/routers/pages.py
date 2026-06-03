@@ -27,7 +27,7 @@ from app.services.email_service import (
 from app.utils.security import hash_password, verify_password
 from app.services.occasion_service import ItemService, OccasionService, PledgeService
 from app.services.social_service import FamilyService, FriendService
-from app.utils.cookie_auth import get_user_from_cookie
+from app.utils.cookie_auth import get_user_from_cookie, require_user
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -279,9 +279,7 @@ def recipients_search(request: Request, q: str = "", db: Session = Depends(get_d
 
 @router.get("/occasions", response_class=HTMLResponse)
 def occasions_list(request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
 
     result = OccasionService.list_visible(db, user.id, upcoming_only=False, page=1, limit=50)
     return templates.TemplateResponse("occasions/list.html", {
@@ -293,9 +291,7 @@ def occasions_list(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/occasions/new", response_class=HTMLResponse)
 def occasions_new_page(request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
 
     friends = FriendService.list_friends(db, user.id)
 
@@ -342,9 +338,7 @@ def occasions_new_post(
     family_id: str = Form(default=""),
     db: Session = Depends(get_db),
 ):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     try:
         deadline_date = date.fromisoformat(pledge_deadline)
         deadline_dt = datetime.combine(deadline_date, datetime.max.time().replace(microsecond=0))
@@ -368,9 +362,7 @@ def occasions_new_post(
 
 @router.get("/occasions/{occasion_id}", response_class=HTMLResponse)
 def occasion_detail(occasion_id: str, request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     try:
         occ = OccasionService.get(db, occasion_id, user.id)
     except Exception:
@@ -479,9 +471,7 @@ def unpledge_item(item_id: str, request: Request, db: Session = Depends(get_db))
 
 @router.get("/profile", response_class=HTMLResponse)
 def profile_page(request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     return templates.TemplateResponse("profile/index.html", {"request": request, "user": user})
 
 
@@ -489,9 +479,7 @@ def profile_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/social/friends", response_class=HTMLResponse)
 def friends_page(request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
 
     friends = FriendService.list_friends(db, user.id)
     all_invitations = FriendService.list_invitations(db, user.id)
@@ -541,9 +529,7 @@ async def friends_invite_post(
 
 @router.post("/social/friends/invitations/{invitation_id}/accept")
 def friends_accept_post(invitation_id: str, request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     try:
         FriendService.accept(db, invitation_id, user.id)
     except Exception:
@@ -553,9 +539,7 @@ def friends_accept_post(invitation_id: str, request: Request, db: Session = Depe
 
 @router.post("/social/friends/invitations/{invitation_id}/reject")
 def friends_reject_post(invitation_id: str, request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     try:
         FriendService.reject(db, invitation_id, user.id)
     except Exception:
@@ -565,9 +549,7 @@ def friends_reject_post(invitation_id: str, request: Request, db: Session = Depe
 
 @router.post("/social/friends/{friend_id}/remove")
 def friends_remove_post(friend_id: str, request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     try:
         FriendService.remove(db, friend_id, user.id)
     except Exception:
@@ -594,9 +576,7 @@ def _get_family_context(db: Session, user_id: str) -> dict:
 
 @router.get("/social/family", response_class=HTMLResponse)
 def family_page(request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     ctx = _get_family_context(db, user.id)
     return templates.TemplateResponse("social/family.html", {
         "request": request, "user": user, "error": None, **ctx,
@@ -609,9 +589,7 @@ def family_create_post(
     name: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     try:
         FamilyService.create(db, FamilyCreateRequest(name=name), user.id)
         return RedirectResponse("/social/family", status_code=303)
@@ -672,9 +650,7 @@ async def family_invite_post(
 
 @router.post("/social/family/accept/{member_id}")
 def family_accept_post(member_id: str, request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     try:
         member = db.get(FamilyMember, member_id)
         if member:
@@ -757,9 +733,7 @@ async def invite_platform_post(
 
 @router.get("/invitations", response_class=HTMLResponse)
 def invitations_page(request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     invitations = db.query(PendingInvitation).filter(
         PendingInvitation.invited_email == user.email,
         PendingInvitation.expires_at > datetime.now(timezone.utc),
@@ -771,11 +745,7 @@ def invitations_page(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/invitations/{inv_id}/accept")
 def invitation_accept(inv_id: str, request: Request, db: Session = Depends(get_db)):
-    from app.models.friendship import Friendship as FriendshipModel
-    from datetime import timezone as _tz
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
 
     inv = db.get(PendingInvitation, inv_id)
     now = datetime.now(timezone.utc)
@@ -789,18 +759,8 @@ def invitation_accept(inv_id: str, request: Request, db: Session = Depends(get_d
 
     try:
         if inv.group_type == "friend":
-            exists = db.query(FriendshipModel).filter(
-                (
-                    (FriendshipModel.requester_id == inv.inviter_id) &
-                    (FriendshipModel.addressee_id == user.id)
-                ) | (
-                    (FriendshipModel.requester_id == user.id) &
-                    (FriendshipModel.addressee_id == inv.inviter_id)
-                )
-            ).first()
-            if not exists:
-                from app.models.friendship import Friendship as Fr
-                db.add(Fr(requester_id=inv.inviter_id, addressee_id=user.id, status="accepted"))
+            # Używamy serwisu — chroni przed self-friendship i duplikatami
+            FriendService.create_accepted(db, inv.inviter_id, user.id)
 
         elif inv.group_type == "family" and inv.family_id:
             exists = db.query(FamilyMember).filter(
@@ -827,9 +787,7 @@ def invitation_accept(inv_id: str, request: Request, db: Session = Depends(get_d
 
 @router.post("/invitations/{inv_id}/decline")
 def invitation_decline(inv_id: str, request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     inv = db.get(PendingInvitation, inv_id)
     if inv and inv.invited_email == user.email:
         db.delete(inv)
@@ -842,9 +800,7 @@ def invitation_decline(inv_id: str, request: Request, db: Session = Depends(get_
 
 @router.post("/social/family/reject/{member_id}")
 def family_reject_post(member_id: str, request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     try:
         member = db.get(FamilyMember, member_id)
         if member and member.user_id == user.id:
@@ -859,9 +815,7 @@ def family_reject_post(member_id: str, request: Request, db: Session = Depends(g
 
 @router.get("/profile/edit", response_class=HTMLResponse)
 def profile_edit_page(request: Request, db: Session = Depends(get_db)):
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
     return templates.TemplateResponse("profile/edit.html", {
         "request": request, "user": user,
     })
@@ -929,9 +883,7 @@ async def profile_edit_avatar(
     db: Session = Depends(get_db),
 ):
     import os, uuid as _uuid
-    user = get_user_from_cookie(request, db)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
+    user = require_user(request, db)
 
     content = await avatar.read()
     if len(content) > 2 * 1024 * 1024:

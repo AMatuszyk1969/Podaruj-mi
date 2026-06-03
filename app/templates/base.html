@@ -98,6 +98,28 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/static/sw.js').catch(() => {});
     }
+
+    // ── CSRF (Double Submit Cookie) ───────────────────────────────────────────
+    (function () {
+      function getCsrf() {
+        var m = document.cookie.match(/(?:^|;\s*)pm_csrf=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+      }
+      // HTMX: dodaj nagłówek X-CSRFToken do każdego żądania
+      document.addEventListener('htmx:configRequest', function (e) {
+        var t = getCsrf(); if (t) e.detail.headers['X-CSRFToken'] = t;
+      });
+      // Zwykłe formularze: wstrzyknij hidden field przed wysłaniem
+      document.addEventListener('submit', function (e) {
+        var f = e.target;
+        if (f.enctype === 'multipart/form-data') return;
+        if (!f.querySelector('[name="csrf_token"]')) {
+          var i = document.createElement('input');
+          i.type = 'hidden'; i.name = 'csrf_token'; i.value = getCsrf();
+          f.appendChild(i);
+        }
+      }, true);
+    })();
   </script>
 </body>
 </html>

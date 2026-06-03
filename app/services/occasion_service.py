@@ -106,15 +106,77 @@ class OccasionService:
     def list_visible(
         db: Session, viewer_id: str, upcoming_only: bool, page: int, limit: int
     ) -> PaginatedOccasions:
-        query = db.query(Occasion)
-        if upcoming_only:
-            query = query.filter(Occasion.occasion_date >= datetime.now(timezone.utc).date())
-        all_occasions = query.order_by(Occasion.occasion_date).all()
-        visible = [o for o in all_occasions if _can_see(db, o, viewer_id)]
+        from sqlalchemy import or_, and_
 
-        total = len(visible)
+        # 1. Graf społecznościowy widza — 3 zapytania zamiast N×M
+        friend_ids = {r[0] for r in db.query(Friendship.addressee_id).filter(
+            Friendship.requester_id == viewer_id, Friendship.status == "accepted",
+        ).all()} | {r[0] for r in db.query(Friendship.requester_id).filter(
+            Friendship.addressee_id == viewer_id, Friendship.status == "accepted",
+        ).all()}
+
+        viewer_family_ids = {r[0] for r in db.query(FamilyMember.family_id).filter(
+            FamilyMember.user_id == viewer_id, FamilyMember.status == "accepted",
+        ).all()}
+
+        # 2. Warunki SQL
+        conds = [
+            Occasion.created_by_id == viewer_id,
+            Occasion.recipient_id  == viewer_id,
+            Occasion.visibility    == "public",
+        ]
+        if friend_ids:
+            conds.append(and_(
+                Occasion.visibility == "friends",
+                or_(
+                    Occasion.created_by_id.in_(friend_ids),
+                    Occasion.recipient_id.in_(friend_ids),
+                ),
+            ))
+        if viewer_family_ids:
+            # Nowe okazje z konkretną rodziną
+            conds.append(and_(
+                Occasion.visibility == "family",
+                Occasion.family_id.isnot(None),
+                Occasion.family_id.in_(viewer_family_ids),
+            ))
+
+        base_q = db.query(Occasion).filter(or_(*conds))
+        if upcoming_only:
+            base_q = base_q.filter(
+                Occasion.occasion_date >= datetime.now(timezone.utc).date()
+            )
+        sql_occasions = base_q.all()
+
+        # 3. Stare okazje rodziny bez family_id — kompatybilność wsteczna
+        if viewer_family_ids:
+            family_member_ids = {r[0] for r in db.query(FamilyMember.user_id).filter(
+                FamilyMember.family_id.in_(viewer_family_ids),
+                FamilyMember.status == "accepted",
+            ).all()}
+            seen_ids = {o.id for o in sql_occasions}
+            legacy_q = db.query(Occasion).filter(
+                Occasion.visibility == "family",
+                Occasion.family_id.is_(None),
+                or_(
+                    Occasion.created_by_id.in_(family_member_ids),
+                    Occasion.recipient_id.in_(family_member_ids),
+                ),
+            )
+            if upcoming_only:
+                legacy_q = legacy_q.filter(
+                    Occasion.occasion_date >= datetime.now(timezone.utc).date()
+                )
+            all_occasions = sql_occasions + [o for o in legacy_q.all()
+                                             if o.id not in seen_ids]
+        else:
+            all_occasions = sql_occasions
+
+        # 4. Sortowanie i paginacja w Pythonie (zbiory z dwóch zapytań)
+        all_occasions.sort(key=lambda o: o.occasion_date)
+        total = len(all_occasions)
         pages = max(1, (total + limit - 1) // limit)
-        slice_ = visible[(page - 1) * limit: page * limit]
+        slice_ = all_occasions[(page - 1) * limit: page * limit]
 
         items = []
         for o in slice_:

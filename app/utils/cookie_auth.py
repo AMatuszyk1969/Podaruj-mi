@@ -17,3 +17,19 @@ def get_user_from_cookie(request: Request, db: Session) -> User | None:
         return user if user and user.is_active else None
     except (JWTError, Exception):
         return None
+
+
+class _LoginRequired(Exception):
+    """Wyrzucana gdy trasa wymaga zalogowania — obsługiwana przez handler w main.py."""
+    pass
+
+
+def require_user(request: Request, db: Session) -> User:
+    """Zwraca zalogowanego użytkownika lub rzuca _LoginRequired (→ redirect /login).
+    Użycie: user = require_user(request, db)
+    Dla przyszłych tras zaleca się FastAPI Depends(require_html_user).
+    """
+    user = get_user_from_cookie(request, db)
+    if not user:
+        raise _LoginRequired()
+    return user

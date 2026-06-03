@@ -64,6 +64,22 @@ class FriendService:
         return FriendshipResponse.model_validate(friendship)
 
     @staticmethod
+    def create_accepted(db: Session, user_a_id: str, user_b_id: str) -> None:
+        """Tworzy od razu zaakceptowaną znajomość (używane przy akceptacji zaproszenia do platformy).
+        Chroni przed self-friendship i duplikatami."""
+        if user_a_id == user_b_id:
+            return
+        existing = db.query(Friendship).filter(
+            (
+                (Friendship.requester_id == user_a_id) & (Friendship.addressee_id == user_b_id)
+            ) | (
+                (Friendship.requester_id == user_b_id) & (Friendship.addressee_id == user_a_id)
+            )
+        ).first()
+        if not existing:
+            db.add(Friendship(requester_id=user_a_id, addressee_id=user_b_id, status="accepted"))
+
+    @staticmethod
     def accept(db: Session, invitation_id: str, user_id: str) -> FriendshipResponse:
         f = db.get(Friendship, invitation_id)
         if not f or f.status != "pending":
