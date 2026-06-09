@@ -52,7 +52,7 @@ def _button(label: str, url: str) -> str:
         '<table role="presentation" cellpadding="0" cellspacing="0" '
         'style="margin:22px 0 6px;"><tr>'
         f'<td style="border-radius:12px; background-color:{_BRAND};">'
-        f'<a href="{url}" target="_blank" style="display:inline-block; '
+        f'<a href="{_esc(url)}" target="_blank" style="display:inline-block; '
         'padding:12px 26px; font-size:15px; font-weight:600; color:#ffffff; '
         f'text-decoration:none; border-radius:12px;">{_esc(label)}</a>'
         '</td></tr></table>'

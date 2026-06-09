@@ -12,8 +12,12 @@ Jak to działa:
   5. Trasy /api/* używają Bearer token — CSRF ich nie dotyczy.
 """
 import hmac
+import re
 import secrets
 from urllib.parse import parse_qs
+
+# Token pola csrf_token w surowym body multipart (nasz hidden input, bez filename)
+_MULTIPART_TOKEN_RE = re.compile(rb'name="csrf_token"\r\n\r\n([^\r\n]+)')
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -44,15 +48,20 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
             if not request_token:
                 content_type = request.headers.get("content-type", "")
-                if "multipart/form-data" in content_type:
-                    # Upload pliku — bezpieczny bez CSRF (patrz docstring)
-                    return await call_next(request)
                 if "application/x-www-form-urlencoded" in content_type:
-                    # 2. Pole formularza — czytamy i cachujemy body
+                    # 2a. Pole formularza — czytamy i cachujemy body
                     body = await request.body()
                     request._body = body  # cache: Starlette re-użyje przy form()
                     parsed = parse_qs(body.decode(errors="replace"), keep_blank_values=True)
                     request_token = parsed.get(CSRF_FIELD, [""])[0]
+                elif "multipart/form-data" in content_type:
+                    # 2b. Upload pliku — czytamy i cachujemy surowe body (request._body),
+                    #     żeby trasa mogła ponownie sparsować plik. Token wyciągamy regexem
+                    #     z body (nie przez request.form(), bo to konsumowałoby strumień).
+                    body = await request.body()
+                    request._body = body
+                    m = _MULTIPART_TOKEN_RE.search(body)
+                    request_token = m.group(1).decode("utf-8", "replace") if m else ""
 
             if not cookie_token or not request_token or \
                not hmac.compare_digest(cookie_token, request_token):

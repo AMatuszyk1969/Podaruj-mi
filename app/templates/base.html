@@ -109,10 +109,9 @@
       document.addEventListener('htmx:configRequest', function (e) {
         var t = getCsrf(); if (t) e.detail.headers['X-CSRFToken'] = t;
       });
-      // Zwykłe formularze: wstrzyknij hidden field przed wysłaniem
+      // Wszystkie formularze (też multipart/upload): wstrzyknij token przed wysłaniem
       document.addEventListener('submit', function (e) {
         var f = e.target;
-        if (f.enctype === 'multipart/form-data') return;
         if (!f.querySelector('[name="csrf_token"]')) {
           var i = document.createElement('input');
           i.type = 'hidden'; i.name = 'csrf_token'; i.value = getCsrf();

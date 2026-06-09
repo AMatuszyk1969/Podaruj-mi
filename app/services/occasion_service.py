@@ -168,16 +168,9 @@ class OccasionService:
     ) -> PaginatedOccasions:
         from sqlalchemy import or_, and_
 
-        # 1. Graf społecznościowy widza — 3 zapytania zamiast N×M
-        friend_ids = {r[0] for r in db.query(Friendship.addressee_id).filter(
-            Friendship.requester_id == viewer_id, Friendship.status == "accepted",
-        ).all()} | {r[0] for r in db.query(Friendship.requester_id).filter(
-            Friendship.addressee_id == viewer_id, Friendship.status == "accepted",
-        ).all()}
-
-        viewer_family_ids = {r[0] for r in db.query(FamilyMember.family_id).filter(
-            FamilyMember.user_id == viewer_id, FamilyMember.status == "accepted",
-        ).all()}
+        # 1. Graf społecznościowy widza — wspólne helpery (jedno źródło prawdy)
+        friend_ids = _accepted_friend_ids(db, viewer_id)
+        viewer_family_ids = _user_family_ids(db, viewer_id)
 
         # 2. Warunki SQL
         conds = [

@@ -1,14 +1,19 @@
 """Strony HTML – renderowane przez Jinja2 po stronie serwera."""
+import logging
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import get_db
+from app.database import SessionLocal, get_db
+
+logger = logging.getLogger(__name__)
 from app.models.family import FamilyMember
 from app.models.item import Item
 from app.models.occasion import Occasion
@@ -227,32 +232,17 @@ def recipients_search(request: Request, q: str = "", db: Session = Depends(get_d
         return HTMLResponse("", status_code=401)
 
     from app.models.user import User as UserModel
-    from app.models.friendship import Friendship as FriendshipModel
     from sqlalchemy import or_, func
+    from app.services.occasion_service import (
+        _accepted_friend_ids, _family_member_ids, _user_family_ids,
+    )
 
-    # Zbierz dozwolone ID: znajomi + rodzina
-    friend_ids: set[str] = set()
-    for f in db.query(FriendshipModel).filter(
-        FriendshipModel.requester_id == user.id, FriendshipModel.status == "accepted"
-    ).all():
-        friend_ids.add(f.addressee_id)
-    for f in db.query(FriendshipModel).filter(
-        FriendshipModel.addressee_id == user.id, FriendshipModel.status == "accepted"
-    ).all():
-        friend_ids.add(f.requester_id)
-
+    # Dozwolone ID: znajomi + członkowie wszystkich rodzin (wspólne helpery)
+    friend_ids = _accepted_friend_ids(db, user.id)
     family_ids: set[str] = set()
-    # Sprawdź WSZYSTKIE rodziny użytkownika (nie tylko pierwszą)
-    user_mems = db.query(FamilyMember).filter(
-        FamilyMember.user_id == user.id, FamilyMember.status == "accepted"
-    ).all()
-    for mem in user_mems:
-        for fm in db.query(FamilyMember).filter(
-            FamilyMember.family_id == mem.family_id,
-            FamilyMember.status == "accepted",
-            FamilyMember.user_id != user.id,
-        ).all():
-            family_ids.add(fm.user_id)
+    for fid in _user_family_ids(db, user.id):
+        family_ids |= _family_member_ids(db, fid)
+    family_ids.discard(user.id)
 
     allowed_ids = friend_ids | family_ids
     results = []
@@ -341,35 +331,46 @@ def occasions_new_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
-async def _notify_new_occasion(db: Session, occasion_obj, base_url: str) -> None:
-    """Powiadamia mailem obdarowywanego oraz wszystkie osoby dodane do okazji."""
+async def _notify_new_occasion(occasion_id: str, base_url: str) -> None:
+    """Powiadamia mailem obdarowywanego oraz wszystkie osoby dodane do okazji.
+    Uruchamiane jako BackgroundTask – własna sesja DB (sesja requestu jest już zamknięta)."""
     from app.models.user import User as UserModel
-    occ_url = f"{base_url}/occasions/{occasion_obj.id}"
-    recipient = occasion_obj.recipient
-    recipient_name = f"{recipient.first_name} {recipient.last_name}"
+    db = SessionLocal()
+    try:
+        occasion_obj = db.get(Occasion, occasion_id)
+        if not occasion_obj:
+            return
+        occ_url = f"{base_url}/occasions/{occasion_obj.id}"
+        recipient = occasion_obj.recipient
+        recipient_name = f"{recipient.first_name} {recipient.last_name}"
 
-    # Obdarowywany (jeśli to nie twórca) – „utworzono okazję dla Ciebie"
-    if occasion_obj.recipient_id != occasion_obj.created_by_id:
-        await send_occasion_created_for_recipient_email(
-            recipient.email, recipient.first_name, occasion_obj.title, occ_url,
-        )
-
-    # Audytorium – osoby, które mogą rezerwować (bez twórcy i obdarowywanego)
-    audience_ids = occasion_audience_ids(db, occasion_obj, include_creator=False)
-    if audience_ids:
-        users = db.query(UserModel).filter(
-            UserModel.id.in_(audience_ids),
-            UserModel.is_active == True,  # noqa: E712
-        ).all()
-        for u in users:
-            await send_added_to_occasion_email(
-                u.email, u.first_name, occasion_obj.title, recipient_name, occ_url,
+        # Obdarowywany (jeśli to nie twórca) – „utworzono okazję dla Ciebie"
+        if occasion_obj.recipient_id != occasion_obj.created_by_id:
+            await send_occasion_created_for_recipient_email(
+                recipient.email, recipient.first_name, occasion_obj.title, occ_url,
             )
+
+        # Audytorium – osoby, które mogą rezerwować (bez twórcy i obdarowywanego)
+        audience_ids = occasion_audience_ids(db, occasion_obj, include_creator=False)
+        if audience_ids:
+            users = db.query(UserModel).filter(
+                UserModel.id.in_(audience_ids),
+                UserModel.is_active == True,  # noqa: E712
+            ).all()
+            for u in users:
+                await send_added_to_occasion_email(
+                    u.email, u.first_name, occasion_obj.title, recipient_name, occ_url,
+                )
+    except Exception as exc:
+        logger.warning("Powiadomienie o nowej okazji %s nie powiodlo sie: %s", occasion_id, exc)
+    finally:
+        db.close()
 
 
 @router.post("/occasions/new", response_class=HTMLResponse)
 async def occasions_new_post(
     request: Request,
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     occasion_type: str = Form("other"),
     occasion_date: str = Form(...),
@@ -398,12 +399,10 @@ async def occasions_new_post(
             visibility=visibility,
             recipient_id=recipient_id,
         ), user.id)
-        # Powiadomienia mailowe – nie blokują utworzenia okazji w razie błędu
-        try:
-            occ_obj = db.get(Occasion, occ.id)
-            await _notify_new_occasion(db, occ_obj, str(request.base_url).rstrip("/"))
-        except Exception:
-            pass
+        # Powiadomienia w tle – nie blokują redirectu na N wysyłek SMTP
+        background_tasks.add_task(
+            _notify_new_occasion, occ.id, str(request.base_url).rstrip("/")
+        )
         return RedirectResponse(f"/occasions/{occ.id}", status_code=303)
     except Exception as exc:
         detail = getattr(exc, "detail", str(exc))
@@ -430,8 +429,13 @@ def occasion_detail(occasion_id: str, request: Request, db: Session = Depends(ge
     )
     occasion_passed = occ.occasion_date < now.date()
 
+    # Rezerwacje użytkownika ograniczone do tej okazji (nie wszystkie globalnie)
     my_pledges = {
-        p.item_id for p in db.query(Pledge).filter(Pledge.user_id == user.id).all()
+        r[0] for r in db.query(Pledge.item_id).join(
+            Item, Pledge.item_id == Item.id
+        ).filter(
+            Pledge.user_id == user.id, Item.occasion_id == occasion_id
+        ).all()
     }
 
     return templates.TemplateResponse("occasions/detail.html", {
@@ -504,9 +508,11 @@ def _render_item_card(request: Request, db: Session, item_obj, user) -> HTMLResp
     deadline = occ.pledge_deadline
     if deadline.tzinfo is None:
         deadline = deadline.replace(tzinfo=timezone.utc)
-    my_pledges = {
-        p.item_id for p in db.query(Pledge).filter(Pledge.user_id == user.id).all()
-    }
+    # Czy ten konkretny przedmiot jest zarezerwowany przez użytkownika (1 indeksowane zapytanie)
+    has_pledge = db.query(Pledge.id).filter(
+        Pledge.item_id == item_obj.id, Pledge.user_id == user.id
+    ).first() is not None
+    my_pledges = {item_obj.id} if has_pledge else set()
     return templates.TemplateResponse("partials/item_card.html", {
         "request": request, "item": item, "user": user,
         "is_recipient": user.id == occ.recipient_id,
