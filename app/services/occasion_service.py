@@ -46,6 +46,56 @@ def _share_family(db: Session, user_a: str, user_b: str) -> bool:
     return bool(families_a & families_b)
 
 
+def _accepted_friend_ids(db: Session, user_id: str) -> set[str]:
+    ids = {r[0] for r in db.query(Friendship.addressee_id).filter(
+        Friendship.requester_id == user_id, Friendship.status == "accepted").all()}
+    ids |= {r[0] for r in db.query(Friendship.requester_id).filter(
+        Friendship.addressee_id == user_id, Friendship.status == "accepted").all()}
+    return ids
+
+
+def _family_member_ids(db: Session, family_id: str) -> set[str]:
+    return {r[0] for r in db.query(FamilyMember.user_id).filter(
+        FamilyMember.family_id == family_id, FamilyMember.status == "accepted").all()}
+
+
+def _user_family_ids(db: Session, user_id: str) -> set[str]:
+    return {r[0] for r in db.query(FamilyMember.family_id).filter(
+        FamilyMember.user_id == user_id, FamilyMember.status == "accepted").all()}
+
+
+def occasion_audience_ids(db: Session, occasion: Occasion, include_creator: bool = True) -> set[str]:
+    """ID osób uprawnionych do rezerwacji prezentów (widzą okazję), bez obdarowywanego.
+
+    Dla widoczności 'public' nie powiadamiamy całej platformy – tylko znajomych
+    i rodzinę osób powiązanych z okazją.
+    """
+    ids: set[str] = set()
+    vis = occasion.visibility
+    related = (occasion.created_by_id, occasion.recipient_id)
+
+    if vis == "friends":
+        for uid in related:
+            ids |= _accepted_friend_ids(db, uid)
+    elif vis == "family":
+        if occasion.family_id:
+            ids |= _family_member_ids(db, occasion.family_id)
+        else:
+            for uid in related:
+                for fid in _user_family_ids(db, uid):
+                    ids |= _family_member_ids(db, fid)
+    else:  # public
+        for uid in related:
+            ids |= _accepted_friend_ids(db, uid)
+            for fid in _user_family_ids(db, uid):
+                ids |= _family_member_ids(db, fid)
+
+    if include_creator and occasion.created_by_id != occasion.recipient_id:
+        ids.add(occasion.created_by_id)
+    ids.discard(occasion.recipient_id)  # obdarowywany nie rezerwuje własnych życzeń
+    return ids
+
+
 def _can_see(db: Session, occasion: Occasion, viewer_id: str) -> bool:
     if viewer_id in (occasion.created_by_id, occasion.recipient_id):
         return True

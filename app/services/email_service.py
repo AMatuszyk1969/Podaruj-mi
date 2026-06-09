@@ -154,6 +154,56 @@ Zespol Podaruj mi
         logger.error("Blad wysylki zaproszenia do platformy do %s: %s", recipient_email, exc)
 
 
+async def send_occasion_created_for_recipient_email(
+    email: str, first_name: str, occasion_title: str, occasion_url: str
+) -> None:
+    message = MessageSchema(
+        subject=f'Utworzono okazję dla Ciebie: "{occasion_title}"',
+        recipients=[email],
+        body=f"""Cześć {first_name}!
+
+W {settings.APP_NAME} utworzono okazję dla Ciebie: "{occasion_title}".
+
+Dodaj swoją listę życzeń, aby bliscy wiedzieli, co sprawi Ci radość:
+{occasion_url}
+
+Pozdrawiamy,
+Zespół {settings.APP_NAME}
+""",
+        subtype=MessageType.plain,
+    )
+    try:
+        await _fm.send_message(message)
+    except Exception as exc:
+        logger.error("Blad wysylki powiadomienia o okazji do %s: %s", email, exc)
+
+
+async def send_added_to_occasion_email(
+    email: str, first_name: str, occasion_title: str,
+    recipient_name: str, occasion_url: str
+) -> None:
+    message = MessageSchema(
+        subject=f'Nowa okazja: "{occasion_title}" - możesz wybrać prezent',
+        recipients=[email],
+        body=f"""Cześć {first_name}!
+
+Zostałeś(-aś) dodany(-a) do nowej okazji w {settings.APP_NAME}:
+"{occasion_title}" — dla: {recipient_name}
+
+Zajrzyj na listę życzeń i zarezerwuj prezent, zanim zrobią to inni:
+{occasion_url}
+
+Pozdrawiamy,
+Zespół {settings.APP_NAME}
+""",
+        subtype=MessageType.plain,
+    )
+    try:
+        await _fm.send_message(message)
+    except Exception as exc:
+        logger.error("Blad wysylki powiadomienia o dodaniu do okazji do %s: %s", email, exc)
+
+
 async def send_deadline_reminder(email: str, first_name: str, occasion_title: str,
                                   occasion_url: str) -> None:
     message = MessageSchema(

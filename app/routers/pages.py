@@ -20,12 +20,19 @@ from app.schemas.social import FamilyCreateRequest, PledgeCreateRequest
 from app.models.pending_invitation import PendingInvitation
 from app.services.auth_service import AuthService
 from app.services.email_service import (
+    send_added_to_occasion_email,
     send_family_invitation_email,
     send_friend_invitation_email,
+    send_occasion_created_for_recipient_email,
     send_platform_invitation_email,
 )
 from app.utils.security import hash_password, verify_password
-from app.services.occasion_service import ItemService, OccasionService, PledgeService
+from app.services.occasion_service import (
+    ItemService,
+    OccasionService,
+    PledgeService,
+    occasion_audience_ids,
+)
 from app.services.social_service import FamilyService, FriendService
 from app.utils.cookie_auth import get_user_from_cookie, require_user
 
@@ -334,8 +341,34 @@ def occasions_new_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+async def _notify_new_occasion(db: Session, occasion_obj, base_url: str) -> None:
+    """Powiadamia mailem obdarowywanego oraz wszystkie osoby dodane do okazji."""
+    from app.models.user import User as UserModel
+    occ_url = f"{base_url}/occasions/{occasion_obj.id}"
+    recipient = occasion_obj.recipient
+    recipient_name = f"{recipient.first_name} {recipient.last_name}"
+
+    # Obdarowywany (jeśli to nie twórca) – „utworzono okazję dla Ciebie"
+    if occasion_obj.recipient_id != occasion_obj.created_by_id:
+        await send_occasion_created_for_recipient_email(
+            recipient.email, recipient.first_name, occasion_obj.title, occ_url,
+        )
+
+    # Audytorium – osoby, które mogą rezerwować (bez twórcy i obdarowywanego)
+    audience_ids = occasion_audience_ids(db, occasion_obj, include_creator=False)
+    if audience_ids:
+        users = db.query(UserModel).filter(
+            UserModel.id.in_(audience_ids),
+            UserModel.is_active == True,  # noqa: E712
+        ).all()
+        for u in users:
+            await send_added_to_occasion_email(
+                u.email, u.first_name, occasion_obj.title, recipient_name, occ_url,
+            )
+
+
 @router.post("/occasions/new", response_class=HTMLResponse)
-def occasions_new_post(
+async def occasions_new_post(
     request: Request,
     title: str = Form(...),
     occasion_type: str = Form("other"),
@@ -365,6 +398,12 @@ def occasions_new_post(
             visibility=visibility,
             recipient_id=recipient_id,
         ), user.id)
+        # Powiadomienia mailowe – nie blokują utworzenia okazji w razie błędu
+        try:
+            occ_obj = db.get(Occasion, occ.id)
+            await _notify_new_occasion(db, occ_obj, str(request.base_url).rstrip("/"))
+        except Exception:
+            pass
         return RedirectResponse(f"/occasions/{occ.id}", status_code=303)
     except Exception as exc:
         detail = getattr(exc, "detail", str(exc))
