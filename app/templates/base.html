@@ -51,6 +51,16 @@
   <!-- Treść strony -->
   <main class="flex-1 max-w-lg mx-auto w-full px-4 py-6">
     {% block content %}{% endblock %}
+
+    <!-- Stopka z linkami prawnymi (na każdej stronie) -->
+    <footer class="mt-10 pt-5 border-t border-gray-100 text-center">
+      <div class="flex items-center justify-center gap-3 text-xs text-gray-400">
+        <a href="/regulamin" class="hover:text-brand-700 transition">Regulamin</a>
+        <span>·</span>
+        <a href="/polityka-prywatnosci" class="hover:text-brand-700 transition">Polityka prywatności</a>
+      </div>
+      <p class="text-xs text-gray-300 mt-2">© Podaruj mi</p>
+    </footer>
   </main>
 
   <!-- Dolna nawigacja (tylko dla zalogowanych) -->
@@ -93,11 +103,41 @@
   <div class="h-16"></div><!-- spacer for bottom nav -->
   {% endif %}
 
+  <!-- Baner informacyjny o plikach cookie (tylko niezbędne) -->
+  <div id="cookie-banner"
+       class="hidden fixed bottom-0 left-0 right-0 z-[60] bg-white border-t border-gray-200 shadow-2xl">
+    <div class="max-w-lg mx-auto px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+      <p class="text-xs text-gray-500 flex-1">
+        Używamy wyłącznie niezbędnych plików cookie (logowanie i bezpieczeństwo).
+        Więcej w <a href="/polityka-prywatnosci" class="text-brand-700 hover:underline">Polityce prywatności</a>.
+      </p>
+      <button id="cookie-accept"
+              class="flex-shrink-0 bg-brand-700 hover:bg-brand-600 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow transition">
+        OK, rozumiem
+      </button>
+    </div>
+  </div>
+
   <script>
     // Rejestracja Service Workera (PWA)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/static/sw.js').catch(() => {});
     }
+
+    // ── Baner cookie (jednorazowy, zapamiętany w localStorage) ────────────────
+    (function () {
+      var banner = document.getElementById('cookie-banner');
+      if (!banner) return;
+      try {
+        if (localStorage.getItem('pm_cookie_ack') === '1') return;
+      } catch (e) { /* brak localStorage – pokaż baner */ }
+      banner.classList.remove('hidden');
+      var btn = document.getElementById('cookie-accept');
+      if (btn) btn.addEventListener('click', function () {
+        try { localStorage.setItem('pm_cookie_ack', '1'); } catch (e) {}
+        banner.classList.add('hidden');
+      });
+    })();
 
     // ── CSRF (Double Submit Cookie) ───────────────────────────────────────────
     (function () {

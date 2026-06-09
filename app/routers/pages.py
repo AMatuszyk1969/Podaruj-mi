@@ -69,6 +69,22 @@ def landing(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+# ── Strony prawne (publiczne) ──────────────────────────────────────────────────
+
+@router.get("/regulamin", response_class=HTMLResponse)
+def terms_page(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse("legal/terms.html", {
+        "request": request, "user": get_user_from_cookie(request, db),
+    })
+
+
+@router.get("/polityka-prywatnosci", response_class=HTMLResponse)
+def privacy_page(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse("legal/privacy.html", {
+        "request": request, "user": get_user_from_cookie(request, db),
+    })
+
+
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 @router.get("/login", response_class=HTMLResponse)

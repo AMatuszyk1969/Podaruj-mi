@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Regulamin – Podaruj mi{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-5">
+  <a href="javascript:history.back()" class="text-gray-400 hover:text-brand-700 transition">
+    <svg width="24" height="24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <h1 class="text-xl font-bold text-brand-700">Regulamin</h1>
+</div>
+
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-sm text-gray-600 leading-relaxed space-y-5">
+
+  <p class="text-xs text-gray-400">Ostatnia aktualizacja: <span class="font-medium">[DO UZUPEŁNIENIA: data]</span></p>
+
+  <p class="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-3 py-2 text-xs">
+    ⚠️ Szkielet dokumentu. Treść musi zostać zweryfikowana i uzupełniona przez prawnika
+    przed publicznym uruchomieniem. Pola w nawiasach kwadratowych wymagają uzupełnienia.
+  </p>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">§1. Postanowienia ogólne</h2>
+    <p>Niniejszy Regulamin określa zasady korzystania z aplikacji „Podaruj mi” (dalej: „Usługa”),
+    dostępnej pod adresem <span class="font-medium">[DO UZUPEŁNIENIA: adres serwisu]</span>.
+    Usługodawcą jest <span class="font-medium">[DO UZUPEŁNIENIA: nazwa firmy / dane, NIP, adres]</span>.</p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">§2. Definicje</h2>
+    <ul class="list-disc pl-5 space-y-1">
+      <li><span class="font-medium">Użytkownik</span> – osoba posiadająca konto w Usłudze.</li>
+      <li><span class="font-medium">Okazja</span> – wydarzenie (np. urodziny) z listą życzeń.</li>
+      <li><span class="font-medium">Życzenie</span> – pozycja na liście prezentów w ramach Okazji.</li>
+      <li><span class="font-medium">Rezerwacja</span> – deklaracja zakupu danego prezentu przez Użytkownika.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">§3. Warunki korzystania</h2>
+    <p>Korzystanie z Usługi wymaga rejestracji konta oraz akceptacji niniejszego Regulaminu i
+    Polityki prywatności. Z Usługi mogą korzystać osoby, które ukończyły
+    <span class="font-medium">[DO UZUPEŁNIENIA: minimalny wiek, np. 16 lat]</span>.</p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">§4. Konto i rejestracja</h2>
+    <p>Rejestracja wymaga podania adresu e-mail, imienia, nazwiska oraz hasła. Aktywacja konta
+    następuje przez link wysłany na podany adres e-mail. Użytkownik zobowiązuje się do podania
+    prawdziwych danych i zachowania poufności hasła.</p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">§5. Zasady korzystania z Usługi</h2>
+    <ul class="list-disc pl-5 space-y-1">
+      <li>Użytkownik może tworzyć Okazje, listy życzeń oraz rezerwować prezenty.</li>
+      <li>Widoczność Okazji (znajomi, rodzina, publiczna) ustala twórca Okazji.</li>
+      <li>Zabronione jest umieszczanie treści bezprawnych, obraźliwych lub naruszających prawa osób trzecich.</li>
+      <li>Zabronione jest korzystanie z Usługi w sposób zakłócający jej działanie.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">§6. Odpowiedzialność</h2>
+    <p>Usługa służy do koordynacji prezentów i nie pośredniczy w transakcjach zakupu.
+    Usługodawca dokłada starań, aby Usługa działała nieprzerwanie, jednak nie gwarantuje
+    ciągłości jej dostępności. <span class="font-medium">[DO UZUPEŁNIENIA: zakres
+    ograniczenia odpowiedzialności zgodny z prawem konsumenckim]</span></p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">§7. Reklamacje</h2>
+    <p>Reklamacje można zgłaszać na adres <span class="font-medium">[DO UZUPEŁNIENIA: e-mail]</span>.
+    Reklamacja zostanie rozpatrzona w terminie
+    <span class="font-medium">[DO UZUPEŁNIENIA: np. 14 dni]</span>.</p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">§8. Rozwiązanie umowy i usunięcie konta</h2>
+    <p>Użytkownik może w każdej chwili usunąć konto w sekcji
+    <a href="/profile/edit" class="text-brand-700 hover:underline">Edytuj profil → Usuń konto</a>.
+    Usunięcie konta powoduje trwałe usunięcie powiązanych danych i treści.</p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">§9. Postanowienia końcowe</h2>
+    <p>Usługodawca zastrzega prawo do zmiany Regulaminu z ważnych przyczyn, informując
+    Użytkowników z odpowiednim wyprzedzeniem. W sprawach nieuregulowanych stosuje się przepisy
+    prawa polskiego. <span class="font-medium">[DO UZUPEŁNIENIA: właściwość sądu, sposób
+    informowania o zmianach]</span></p>
+  </section>
+
+</div>
+
+{% endblock %}

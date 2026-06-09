@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Polityka prywatności – Podaruj mi{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-5">
+  <a href="javascript:history.back()" class="text-gray-400 hover:text-brand-700 transition">
+    <svg width="24" height="24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <h1 class="text-xl font-bold text-brand-700">Polityka prywatności</h1>
+</div>
+
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-sm text-gray-600 leading-relaxed space-y-5">
+
+  <p class="text-xs text-gray-400">Ostatnia aktualizacja: <span class="font-medium">[DO UZUPEŁNIENIA: data]</span></p>
+
+  <p class="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-3 py-2 text-xs">
+    ⚠️ Szkielet dokumentu. Treść musi zostać zweryfikowana i uzupełniona przez prawnika
+    przed publicznym uruchomieniem. Pola w nawiasach kwadratowych wymagają uzupełnienia.
+  </p>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">1. Administrator danych</h2>
+    <p>Administratorem Twoich danych osobowych jest <span class="font-medium">[DO UZUPEŁNIENIA:
+    nazwa firmy / imię i nazwisko, adres, NIP]</span>. Kontakt w sprawach danych osobowych:
+    <span class="font-medium">[DO UZUPEŁNIENIA: adres e-mail kontaktowy]</span>.</p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">2. Jakie dane przetwarzamy</h2>
+    <ul class="list-disc pl-5 space-y-1">
+      <li>Dane konta: adres e-mail, imię i nazwisko, hasło (przechowywane w postaci zaszyfrowanej).</li>
+      <li>Zdjęcie profilowe (avatar) – jeśli zostanie dodane.</li>
+      <li>Treści tworzone w aplikacji: okazje, listy życzeń, rezerwacje prezentów.</li>
+      <li>Powiązania społecznościowe: znajomi oraz grupy rodzinne.</li>
+      <li>Dane techniczne: adres IP (na potrzeby ograniczania nadużyć), data utworzenia konta.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">3. Cele i podstawy prawne przetwarzania</h2>
+    <ul class="list-disc pl-5 space-y-1">
+      <li>Świadczenie usługi (prowadzenie konta, okazje, powiadomienia) – art. 6 ust. 1 lit. b RODO (wykonanie umowy).</li>
+      <li>Wysyłka e-maili transakcyjnych (aktywacja, reset hasła, powiadomienia o okazjach i terminach) – art. 6 ust. 1 lit. b RODO.</li>
+      <li>Bezpieczeństwo i ograniczanie nadużyć (rate limiting, logi) – art. 6 ust. 1 lit. f RODO (prawnie uzasadniony interes).</li>
+      <li><span class="font-medium">[DO UZUPEŁNIENIA: inne cele, np. marketing – tylko za zgodą]</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">4. Pliki cookie</h2>
+    <p>Aplikacja używa wyłącznie <span class="font-medium">niezbędnych</span> plików cookie,
+    koniecznych do działania usługi:</p>
+    <ul class="list-disc pl-5 space-y-1 mt-1">
+      <li><code class="text-xs bg-gray-50 px-1 rounded">pm_token</code> – utrzymanie sesji zalogowanego użytkownika.</li>
+      <li><code class="text-xs bg-gray-50 px-1 rounded">pm_csrf</code> – ochrona przed atakami CSRF.</li>
+    </ul>
+    <p class="mt-1">Nie stosujemy plików cookie analitycznych ani marketingowych.
+    Cookie niezbędne nie wymagają zgody, ale informujemy o nich w banerze przy pierwszej wizycie.
+    <span class="font-medium">[DO UZUPEŁNIENIA: jeśli w przyszłości dodacie analitykę/marketing,
+    konieczny będzie mechanizm zgody]</span></p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">5. Odbiorcy danych (podmioty przetwarzające)</h2>
+    <ul class="list-disc pl-5 space-y-1">
+      <li>Dostawca wysyłki e-mail: <span class="font-medium">[DO UZUPEŁNIENIA: np. SendGrid / Twilio]</span> – w celu dostarczenia wiadomości.</li>
+      <li>Hosting przechowywania plików (avatary): <span class="font-medium">[DO UZUPEŁNIENIA: np. Supabase Storage]</span>.</li>
+      <li>Dostawca hostingu / infrastruktury: <span class="font-medium">[DO UZUPEŁNIENIA: nazwa]</span>.</li>
+    </ul>
+    <p class="mt-1"><span class="font-medium">[DO UZUPEŁNIENIA: informacja o ewentualnym
+    przekazywaniu danych poza EOG i podstawie takiego transferu]</span></p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">6. Okres przechowywania</h2>
+    <p>Dane konta przechowujemy przez czas posiadania konta. Po usunięciu konta dane są
+    trwale usuwane wraz z powiązanymi treściami (okazje, listy życzeń, rezerwacje, powiązania).
+    <span class="font-medium">[DO UZUPEŁNIENIA: ewentualne okresy retencji logów/kopii zapasowych]</span></p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">7. Twoje prawa</h2>
+    <p>Przysługuje Ci prawo do: dostępu do danych, sprostowania, usunięcia („prawo do bycia
+    zapomnianym”), ograniczenia przetwarzania, przenoszenia danych oraz wniesienia sprzeciwu.
+    Konto możesz usunąć samodzielnie w sekcji <a href="/profile/edit" class="text-brand-700 hover:underline">Edytuj profil → Usuń konto</a>.
+    Masz również prawo wniesienia skargi do Prezesa Urzędu Ochrony Danych Osobowych (PUODO).</p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">8. Bezpieczeństwo</h2>
+    <p>Stosujemy środki techniczne i organizacyjne chroniące dane: szyfrowanie haseł,
+    ochronę CSRF, ograniczanie liczby żądań oraz transmisję przez HTTPS.</p>
+  </section>
+
+  <section>
+    <h2 class="text-base font-semibold text-gray-800 mb-1">9. Kontakt</h2>
+    <p>W sprawach dotyczących prywatności napisz na:
+    <span class="font-medium">[DO UZUPEŁNIENIA: adres e-mail]</span>.</p>
+  </section>
+
+</div>
+
+{% endblock %}
