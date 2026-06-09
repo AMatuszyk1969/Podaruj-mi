@@ -344,10 +344,10 @@ class ItemService:
         if not item:
             raise HTTPException(status_code=404, detail="Przedmiot nie istnieje")
         occasion = item.occasion
-        # Tylko twórca okazji może edytować życzenia
-        if occasion.created_by_id != user_id:
+        # Twórca okazji lub obdarowywany mogą edytować życzenia
+        if user_id not in (occasion.created_by_id, occasion.recipient_id):
             raise HTTPException(status_code=403,
-                                detail="Tylko tworca okazji moze edytowac zyczenia")
+                                detail="Tylko tworca lub obdarowywany moze edytowac zyczenia")
         # Niedozwolone gdy ktokolwiek już zarezerwował
         if item.pledges:
             raise HTTPException(status_code=409,
@@ -364,10 +364,10 @@ class ItemService:
         if not item:
             raise HTTPException(status_code=404, detail="Przedmiot nie istnieje")
         occasion = item.occasion
-        # Tylko twórca okazji może usuwać życzenia
-        if occasion.created_by_id != user_id:
+        # Twórca okazji lub obdarowywany mogą usuwać życzenia
+        if user_id not in (occasion.created_by_id, occasion.recipient_id):
             raise HTTPException(status_code=403,
-                                detail="Tylko tworca okazji moze usuwac zyczenia")
+                                detail="Tylko tworca lub obdarowywany moze usuwac zyczenia")
         # Niedozwolone gdy ktokolwiek już zarezerwował
         if item.pledges:
             raise HTTPException(status_code=409,

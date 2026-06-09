@@ -594,8 +594,8 @@ def item_edit_form(item_id: str, request: Request, db: Session = Depends(get_db)
     if not item_obj:
         return HTMLResponse("", status_code=404)
     occ = item_obj.occasion
-    # Brak uprawnień lub już zarezerwowane → pokaż normalną kartę
-    if occ.created_by_id != user.id or item_obj.pledges:
+    # Brak uprawnień (twórca lub obdarowywany) lub już zarezerwowane → normalna karta
+    if user.id not in (occ.created_by_id, occ.recipient_id) or item_obj.pledges:
         return _render_item_card(request, db, item_obj, user)
     return templates.TemplateResponse("partials/item_edit_form.html", {
         "request": request, "item": item_obj,

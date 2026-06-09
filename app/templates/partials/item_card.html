@@ -84,8 +84,8 @@
     {% endif %}
   {% endif %}
 
-  <!-- Akcje twórcy okazji: edycja / usuwanie (tylko gdy nikt nie zarezerwował) -->
-  {% if is_creator|default(false) and item.pledges_count == 0 %}
+  <!-- Akcje twórcy lub obdarowywanego: edycja / usuwanie (tylko gdy nikt nie zarezerwował) -->
+  {% if (is_creator|default(false) or is_recipient|default(false)) and item.pledges_count == 0 %}
   <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100">
     <button
       hx-get="/items/{{ item.id }}/edit"
