@@ -83,4 +83,25 @@
     <p class="mt-3 text-center text-xs text-gray-400">Ktoś już to zarezerwował</p>
     {% endif %}
   {% endif %}
+
+  <!-- Akcje twórcy okazji: edycja / usuwanie (tylko gdy nikt nie zarezerwował) -->
+  {% if is_creator|default(false) and item.pledges_count == 0 %}
+  <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+    <button
+      hx-get="/items/{{ item.id }}/edit"
+      hx-target="#item-{{ item.id }}"
+      hx-swap="outerHTML"
+      class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium py-2 rounded-lg transition">
+      ✏️ Edytuj
+    </button>
+    <button
+      hx-delete="/items/{{ item.id }}"
+      hx-target="#item-{{ item.id }}"
+      hx-swap="outerHTML"
+      hx-confirm="Usunąć to życzenie? Tej operacji nie można cofnąć."
+      class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-medium py-2 rounded-lg transition">
+      🗑️ Usuń
+    </button>
+  </div>
+  {% endif %}
 </div>

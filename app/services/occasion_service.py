@@ -220,6 +220,10 @@ class OccasionService:
             raise HTTPException(status_code=404, detail="Okazja nie istnieje")
         if occasion.created_by_id != user_id:
             raise HTTPException(status_code=403, detail="Tylko tworca moze edytowac okazje")
+        # Edycja dozwolona tylko do dnia okazji (włącznie)
+        if occasion.occasion_date < datetime.now(timezone.utc).date():
+            raise HTTPException(status_code=409,
+                                detail="Nie mozna edytowac okazji po jej dacie")
 
         for field, value in data.model_dump(exclude_none=True).items():
             setattr(occasion, field, value)
@@ -288,10 +292,14 @@ class ItemService:
         if not item:
             raise HTTPException(status_code=404, detail="Przedmiot nie istnieje")
         occasion = item.occasion
-        if user_id not in (occasion.recipient_id, occasion.created_by_id):
-            raise HTTPException(status_code=403, detail="Brak uprawnien do edycji")
-        if item.status != "available":
-            raise HTTPException(status_code=409, detail="Zarezerwowany przedmiot nie moze byc edytowany")
+        # Tylko twórca okazji może edytować życzenia
+        if occasion.created_by_id != user_id:
+            raise HTTPException(status_code=403,
+                                detail="Tylko tworca okazji moze edytowac zyczenia")
+        # Niedozwolone gdy ktokolwiek już zarezerwował
+        if item.pledges:
+            raise HTTPException(status_code=409,
+                                detail="Zarezerwowane zyczenie nie moze byc edytowane")
         for field, value in data.model_dump(exclude_none=True).items():
             setattr(item, field, value)
         db.commit()
@@ -304,11 +312,14 @@ class ItemService:
         if not item:
             raise HTTPException(status_code=404, detail="Przedmiot nie istnieje")
         occasion = item.occasion
-        if user_id not in (occasion.recipient_id, occasion.created_by_id):
-            raise HTTPException(status_code=403, detail="Brak uprawnien do usuniecia")
+        # Tylko twórca okazji może usuwać życzenia
+        if occasion.created_by_id != user_id:
+            raise HTTPException(status_code=403,
+                                detail="Tylko tworca okazji moze usuwac zyczenia")
+        # Niedozwolone gdy ktokolwiek już zarezerwował
         if item.pledges:
             raise HTTPException(status_code=409,
-                                detail="Zarezerwowany przedmiot nie moze byc usuniety")
+                                detail="Zarezerwowane zyczenie nie moze byc usuniete")
         db.delete(item)
         db.commit()
 

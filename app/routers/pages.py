@@ -14,8 +14,8 @@ from app.models.item import Item
 from app.models.occasion import Occasion
 from app.models.pledge import Pledge
 from app.schemas.auth import LoginRequest, RegisterRequest
-from app.schemas.item import ItemCreateRequest
-from app.schemas.occasion import OccasionCreateRequest
+from app.schemas.item import ItemCreateRequest, ItemUpdateRequest
+from app.schemas.occasion import OccasionCreateRequest, OccasionUpdateRequest
 from app.schemas.social import FamilyCreateRequest, PledgeCreateRequest
 from app.models.pending_invitation import PendingInvitation
 from app.services.auth_service import AuthService
@@ -376,6 +376,7 @@ def occasion_detail(occasion_id: str, request: Request, db: Session = Depends(ge
         if occ.pledge_deadline.tzinfo is None
         else occ.pledge_deadline < now
     )
+    occasion_passed = occ.occasion_date < now.date()
 
     my_pledges = {
         p.item_id for p in db.query(Pledge).filter(Pledge.user_id == user.id).all()
@@ -388,11 +389,77 @@ def occasion_detail(occasion_id: str, request: Request, db: Session = Depends(ge
         "is_recipient": is_recipient,
         "is_creator": is_creator,
         "deadline_passed": deadline_passed,
+        "occasion_passed": occasion_passed,
         "my_pledges": my_pledges,
     })
 
 
+@router.get("/occasions/{occasion_id}/edit", response_class=HTMLResponse)
+def occasion_edit_page(occasion_id: str, request: Request, db: Session = Depends(get_db)):
+    user = require_user(request, db)
+    occ = db.get(Occasion, occasion_id)
+    if not occ or occ.created_by_id != user.id:
+        return RedirectResponse(f"/occasions/{occasion_id}", status_code=303)
+    if occ.occasion_date < datetime.now(timezone.utc).date():
+        return RedirectResponse(f"/occasions/{occasion_id}", status_code=303)
+    return templates.TemplateResponse("occasions/edit.html", {
+        "request": request, "user": user, "occ": occ, "error": None,
+    })
+
+
+@router.post("/occasions/{occasion_id}/edit", response_class=HTMLResponse)
+def occasion_edit_post(
+    occasion_id: str,
+    request: Request,
+    title: str = Form(...),
+    occasion_type: str = Form("other"),
+    occasion_date: str = Form(...),
+    pledge_deadline: str = Form(...),
+    description: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user = require_user(request, db)
+    try:
+        deadline_date = date.fromisoformat(pledge_deadline)
+        deadline_dt = datetime.combine(deadline_date, datetime.max.time().replace(microsecond=0))
+        OccasionService.update(db, occasion_id, OccasionUpdateRequest(
+            title=title,
+            description=description,
+            occasion_type=occasion_type,
+            occasion_date=date.fromisoformat(occasion_date),
+            pledge_deadline=deadline_dt,
+        ), user.id)
+        return RedirectResponse(f"/occasions/{occasion_id}", status_code=303)
+    except Exception as exc:
+        detail = getattr(exc, "detail", str(exc))
+        occ = db.get(Occasion, occasion_id)
+        return templates.TemplateResponse("occasions/edit.html", {
+            "request": request, "user": user, "occ": occ, "error": detail,
+        }, status_code=400)
+
+
 # ── HTMX partials – items ─────────────────────────────────────────────────────
+
+def _render_item_card(request: Request, db: Session, item_obj, user) -> HTMLResponse:
+    """Renderuje kartę życzenia z poprawnymi flagami uprawnień i terminów."""
+    occ = item_obj.occasion
+    item = ItemService._item_response(item_obj, user.id, occ.recipient_id)
+    now = datetime.now(timezone.utc)
+    deadline = occ.pledge_deadline
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    my_pledges = {
+        p.item_id for p in db.query(Pledge).filter(Pledge.user_id == user.id).all()
+    }
+    return templates.TemplateResponse("partials/item_card.html", {
+        "request": request, "item": item, "user": user,
+        "is_recipient": user.id == occ.recipient_id,
+        "is_creator": user.id == occ.created_by_id,
+        "deadline_passed": deadline < now,
+        "my_pledges": my_pledges,
+        "occasion_id": occ.id,
+    })
+
 
 @router.post("/occasions/{occasion_id}/items", response_class=HTMLResponse)
 def add_item(
@@ -408,16 +475,10 @@ def add_item(
         return HTMLResponse('<p class="text-red-500">Brak autoryzacji</p>', status_code=401)
     try:
         price = float(estimated_price) if estimated_price else None
-        item = ItemService.create(db, occasion_id, ItemCreateRequest(
+        created = ItemService.create(db, occasion_id, ItemCreateRequest(
             name=name, url=url or None, estimated_price=price,
         ), user.id)
-        occ = OccasionService.get(db, occasion_id, user.id)
-        is_recipient = occ.recipient.id == user.id
-        return templates.TemplateResponse("partials/item_card.html", {
-            "request": request, "item": item, "user": user,
-            "is_recipient": is_recipient, "deadline_passed": False,
-            "my_pledges": set(), "occasion_id": occasion_id,
-        })
+        return _render_item_card(request, db, db.get(Item, created.id), user)
     except Exception as exc:
         detail = getattr(exc, "detail", str(exc))
         return HTMLResponse(f'<p class="text-red-500 text-sm">{detail}</p>', status_code=400)
@@ -430,16 +491,7 @@ def pledge_item(item_id: str, request: Request, db: Session = Depends(get_db)):
         return HTMLResponse('<p class="text-red-500">Brak autoryzacji</p>', status_code=401)
     try:
         PledgeService.create(db, item_id, PledgeCreateRequest(), user.id)
-        item_obj = db.get(Item, item_id)
-        occ = item_obj.occasion
-        item = ItemService._item_response(item_obj, user.id, occ.recipient_id)
-        return templates.TemplateResponse("partials/item_card.html", {
-            "request": request, "item": item, "user": user,
-            "is_recipient": user.id == occ.recipient_id,
-            "deadline_passed": False,
-            "my_pledges": {item_id},
-            "occasion_id": occ.id,
-        })
+        return _render_item_card(request, db, db.get(Item, item_id), user)
     except Exception as exc:
         detail = getattr(exc, "detail", str(exc))
         return HTMLResponse(f'<p class="text-red-500 text-sm">{detail}</p>', status_code=400)
@@ -452,16 +504,74 @@ def unpledge_item(item_id: str, request: Request, db: Session = Depends(get_db))
         return HTMLResponse('<p class="text-red-500">Brak autoryzacji</p>', status_code=401)
     try:
         PledgeService.delete(db, item_id, user.id)
-        item_obj = db.get(Item, item_id)
-        occ = item_obj.occasion
-        item = ItemService._item_response(item_obj, user.id, occ.recipient_id)
-        return templates.TemplateResponse("partials/item_card.html", {
-            "request": request, "item": item, "user": user,
-            "is_recipient": user.id == occ.recipient_id,
-            "deadline_passed": False,
-            "my_pledges": set(),
-            "occasion_id": occ.id,
-        })
+        return _render_item_card(request, db, db.get(Item, item_id), user)
+    except Exception as exc:
+        detail = getattr(exc, "detail", str(exc))
+        return HTMLResponse(f'<p class="text-red-500 text-sm">{detail}</p>', status_code=400)
+
+
+@router.get("/items/{item_id}/card", response_class=HTMLResponse)
+def item_card(item_id: str, request: Request, db: Session = Depends(get_db)):
+    """Zwraca normalną kartę życzenia (np. po anulowaniu edycji)."""
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse('<p class="text-red-500">Brak autoryzacji</p>', status_code=401)
+    item_obj = db.get(Item, item_id)
+    if not item_obj:
+        return HTMLResponse("", status_code=404)
+    return _render_item_card(request, db, item_obj, user)
+
+
+@router.get("/items/{item_id}/edit", response_class=HTMLResponse)
+def item_edit_form(item_id: str, request: Request, db: Session = Depends(get_db)):
+    """Zwraca formularz edycji życzenia (tylko twórca, gdy niezarezerwowane)."""
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse('<p class="text-red-500">Brak autoryzacji</p>', status_code=401)
+    item_obj = db.get(Item, item_id)
+    if not item_obj:
+        return HTMLResponse("", status_code=404)
+    occ = item_obj.occasion
+    # Brak uprawnień lub już zarezerwowane → pokaż normalną kartę
+    if occ.created_by_id != user.id or item_obj.pledges:
+        return _render_item_card(request, db, item_obj, user)
+    return templates.TemplateResponse("partials/item_edit_form.html", {
+        "request": request, "item": item_obj,
+    })
+
+
+@router.post("/items/{item_id}/edit", response_class=HTMLResponse)
+def item_edit_post(
+    item_id: str,
+    request: Request,
+    name: str = Form(...),
+    url: str = Form(""),
+    estimated_price: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse('<p class="text-red-500">Brak autoryzacji</p>', status_code=401)
+    try:
+        price = float(estimated_price) if estimated_price else None
+        ItemService.update(db, item_id, ItemUpdateRequest(
+            name=name, url=url or None, estimated_price=price,
+        ), user.id)
+        return _render_item_card(request, db, db.get(Item, item_id), user)
+    except Exception as exc:
+        detail = getattr(exc, "detail", str(exc))
+        return HTMLResponse(f'<p class="text-red-500 text-sm">{detail}</p>', status_code=400)
+
+
+@router.delete("/items/{item_id}", response_class=HTMLResponse)
+def item_delete(item_id: str, request: Request, db: Session = Depends(get_db)):
+    """Usuwa życzenie (tylko twórca, gdy niezarezerwowane). Zwraca pusty HTML → karta znika."""
+    user = get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse('<p class="text-red-500">Brak autoryzacji</p>', status_code=401)
+    try:
+        ItemService.delete(db, item_id, user.id)
+        return HTMLResponse("")
     except Exception as exc:
         detail = getattr(exc, "detail", str(exc))
         return HTMLResponse(f'<p class="text-red-500 text-sm">{detail}</p>', status_code=400)
