@@ -8,7 +8,11 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models.occasion import Occasion
 from app.models.user import User
-from app.services.email_service import send_deadline_reminder
+from app.services.email_service import (
+    send_deadline_reminder,
+    send_occasion_closed_email,
+    send_occasion_summary_email,
+)
 from app.services.occasion_service import occasion_audience_ids
 
 logger = logging.getLogger(__name__)
@@ -58,12 +62,66 @@ async def send_deadline_reminders() -> None:
         db.close()
 
 
+async def send_occasion_summaries() -> None:
+    """Po upływie terminu zapisów wysyła podsumowanie:
+    - twórcy okazji (jeśli nie jest obdarowywanym) – liczbę zarezerwowanych prezentów,
+    - obdarowywanemu – neutralną informację bez liczb (niespodzianka zachowana).
+    Okno 7 dni chroni przed zaległą wysyłką dla bardzo starych okazji."""
+    db: Session = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        window_start = now - timedelta(days=7)
+
+        passed = db.query(Occasion).filter(
+            Occasion.pledge_deadline < now,
+            Occasion.pledge_deadline >= window_start,
+            Occasion.summary_sent.is_(False),
+        ).all()
+
+        for occasion in passed:
+            total = len(occasion.items)
+            reserved = sum(1 for item in occasion.items if item.pledges)
+            url = f"{settings.FRONTEND_URL}/occasions/{occasion.id}"
+
+            creator = occasion.created_by
+            recipient = occasion.recipient
+
+            # Szczegóły do twórcy – tylko gdy nie jest obdarowywanym (ochrona niespodzianki)
+            if occasion.created_by_id != occasion.recipient_id and creator and creator.is_active:
+                await send_occasion_summary_email(
+                    creator.email, creator.first_name, occasion.title, reserved, total, url
+                )
+                logger.info("Summary sent to creator %s for occasion %s",
+                            creator.email, occasion.id)
+
+            # Neutralnie do obdarowywanego
+            if recipient and recipient.is_active:
+                await send_occasion_closed_email(
+                    recipient.email, recipient.first_name, occasion.title
+                )
+
+            occasion.summary_sent = True
+
+        db.commit()
+    except Exception as exc:
+        logger.error("Scheduler summary error: %s", exc)
+    finally:
+        db.close()
+
+
 def start_scheduler() -> None:
     scheduler.add_job(
         send_deadline_reminders,
         trigger="interval",
         hours=1,
         id="deadline_reminders",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        send_occasion_summaries,
+        trigger="interval",
+        hours=1,
+        id="occasion_summaries",
         replace_existing=True,
     )
     scheduler.start()

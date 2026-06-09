@@ -24,6 +24,7 @@ class Occasion(Base):
         String(20), nullable=False, default="friends"
     )  # public | friends | family
     reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    summary_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     created_by_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True

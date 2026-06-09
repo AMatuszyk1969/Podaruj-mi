@@ -226,3 +226,55 @@ Zespol {settings.APP_NAME}
         await _fm.send_message(message)
     except Exception as exc:
         logger.error("Blad wysylki przypomnienia do %s: %s", email, exc)
+
+
+async def send_occasion_summary_email(
+    email: str, first_name: str, occasion_title: str,
+    reserved: int, total: int, occasion_url: str
+) -> None:
+    """Podsumowanie po upływie terminu – do twórcy okazji (zawiera liczby rezerwacji)."""
+    message = MessageSchema(
+        subject=f'Podsumowanie okazji: "{occasion_title}"',
+        recipients=[email],
+        body=f"""Cześć {first_name}!
+
+Termin wyboru prezentów dla okazji "{occasion_title}" właśnie minął.
+
+Zarezerwowano {reserved} z {total} prezentów z listy życzeń.
+
+Szczegóły znajdziesz tutaj:
+{occasion_url}
+
+Pozdrawiamy,
+Zespół {settings.APP_NAME}
+""",
+        subtype=MessageType.plain,
+    )
+    try:
+        await _fm.send_message(message)
+    except Exception as exc:
+        logger.error("Blad wysylki podsumowania okazji do %s: %s", email, exc)
+
+
+async def send_occasion_closed_email(
+    email: str, first_name: str, occasion_title: str
+) -> None:
+    """Neutralne powiadomienie po upływie terminu – do obdarowywanego (bez liczb,
+    żeby nie psuć niespodzianki)."""
+    message = MessageSchema(
+        subject=f'Termin wyboru prezentów minął: "{occasion_title}"',
+        recipients=[email],
+        body=f"""Cześć {first_name}!
+
+Termin, w którym bliscy mogli wybierać prezenty dla okazji "{occasion_title}",
+właśnie minął. Wkrótce poznasz swoje prezenty!
+
+Pozdrawiamy,
+Zespół {settings.APP_NAME}
+""",
+        subtype=MessageType.plain,
+    )
+    try:
+        await _fm.send_message(message)
+    except Exception as exc:
+        logger.error("Blad wysylki powiadomienia o zamknieciu okazji do %s: %s", email, exc)
