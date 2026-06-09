@@ -52,6 +52,7 @@ class OccasionListItem(BaseModel):
     recipient: UserPublic
     items_count: int
     pledged_count: int
+    category: str = "public"  # "mine" | "family" | "friends" | "public"
 
     model_config = {"from_attributes": True}
 

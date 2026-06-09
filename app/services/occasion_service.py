@@ -191,6 +191,14 @@ class OccasionService:
         items = []
         for o in slice_:
             pledged = sum(len(i.pledges) for i in o.items)
+            if viewer_id in (o.created_by_id, o.recipient_id):
+                category = "mine"
+            elif o.visibility == "family":
+                category = "family"
+            elif o.visibility == "friends":
+                category = "friends"
+            else:
+                category = "public"
             items.append(OccasionListItem(
                 id=o.id,
                 title=o.title,
@@ -200,6 +208,7 @@ class OccasionService:
                 recipient=o.recipient,
                 items_count=len(o.items),
                 pledged_count=pledged,
+                category=category,
             ))
         return PaginatedOccasions(items=items, total=total, page=page, pages=pages)
 
