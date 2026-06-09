@@ -71,7 +71,17 @@ def _can_see(db: Session, occasion: Occasion, viewer_id: str) -> bool:
 def _item_to_response(item: Item, viewer_id: str, recipient_id: str) -> ItemResponse:
     pledges = []
     if viewer_id != recipient_id:  # ukryj przed obdarowywanym
-        pledges = [PledgeResponse.model_validate(p) for p in item.pledges]
+        pledges = [
+            PledgeResponse(
+                id=p.id,
+                user_id=p.user_id,
+                user_name=(f"{p.user.first_name} {p.user.last_name}" if p.user else None),
+                user_avatar_url=(p.user.avatar_url if p.user else None),
+                note=p.note,
+                created_at=p.created_at,
+            )
+            for p in item.pledges
+        ]
     return ItemResponse(
         id=item.id,
         name=item.name,

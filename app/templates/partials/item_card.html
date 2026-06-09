@@ -34,9 +34,30 @@
     </span>
   </div>
 
-  <!-- Liczba rezerwacji (widoczna dla wszystkich oprócz obdarowywanego) -->
+  <!-- Kto zarezerwował (widoczne dla wszystkich oprócz obdarowywanego) -->
   {% if not is_recipient and item.pledges_count > 0 %}
-  <p class="text-xs text-gray-400 mt-2">👥 {{ item.pledges_count }} os. się zapisało</p>
+  <div class="mt-2">
+    <p class="text-xs text-gray-400 mb-1.5">
+      👥 {{ item.pledges_count }} {% if item.pledges_count == 1 %}os. zarezerwowała{% else %}os. zarezerwowało{% endif %}
+    </p>
+    {% if item.pledges %}
+    <div class="flex flex-col gap-1.5">
+      {% for p in item.pledges %}
+      <div class="flex items-center gap-2">
+        {% if p.user_avatar_url %}
+        <img src="{{ p.user_avatar_url }}" alt="{{ p.user_name }}"
+             class="w-6 h-6 rounded-full object-cover border border-gray-100 flex-shrink-0"/>
+        {% else %}
+        <div class="w-6 h-6 rounded-full bg-brand-100 flex items-center justify-center text-[10px] font-bold text-brand-700 flex-shrink-0 select-none">
+          {% if p.user_name %}{{ p.user_name.split(' ')[0][0]|upper }}{{ p.user_name.split(' ')[-1][0]|upper }}{% else %}?{% endif %}
+        </div>
+        {% endif %}
+        <span class="text-xs text-gray-600 truncate">{{ p.user_name or 'Użytkownik' }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
   {% endif %}
 
   <!-- Przycisk akcji (tylko dla darczyńców, przed deadlinem) -->

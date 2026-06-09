@@ -10,6 +10,8 @@ CollectionMode = Literal["single", "multiple"]
 class PledgeResponse(BaseModel):
     id: str
     user_id: str
+    user_name: str | None = None
+    user_avatar_url: str | None = None
     note: str | None = None
     created_at: datetime
 
