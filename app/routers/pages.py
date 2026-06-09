@@ -1035,26 +1035,13 @@ def profile_edit_password(
     return HTMLResponse('<p class="text-sm text-green-600 font-medium">✓ Hasło zostało zmienione.</p>')
 
 
-def _detect_image_type(data: bytes) -> str | None:
-    """Detekcja typu obrazu przez magic bytes — nie wymaga imghdr (usunięty w Python 3.13)."""
-    if data[:3] == b'\xff\xd8\xff':
-        return 'jpeg'
-    if data[:8] == b'\x89PNG\r\n\x1a\n':
-        return 'png'
-    if data[:6] in (b'GIF87a', b'GIF89a'):
-        return 'gif'
-    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
-        return 'webp'
-    return None
-
-
 @router.post("/profile/edit/avatar")
 async def profile_edit_avatar(
     request: Request,
     avatar: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    import os, uuid as _uuid
+    from app.services.storage_service import delete_avatar, detect_image_type, save_avatar
     user = require_user(request, db)
 
     content = await avatar.read()
@@ -1064,20 +1051,53 @@ async def profile_edit_avatar(
             "avatar_error": "Plik za duży (max 2 MB).",
         })
 
-    img_type = _detect_image_type(content)
+    img_type = detect_image_type(content)
     if img_type not in ("jpeg", "png", "gif", "webp"):
         return templates.TemplateResponse("profile/edit.html", {
             "request": request, "user": user,
             "avatar_error": "Dozwolone formaty: JPG, PNG, WebP, GIF.",
         })
 
-    filename = f"{_uuid.uuid4()}.{img_type}"
-    static_dir = "frontend/static/avatars"
-    os.makedirs(static_dir, exist_ok=True)
-    with open(f"{static_dir}/{filename}", "wb") as f:
-        f.write(content)
+    old_avatar = user.avatar_url
+    try:
+        new_url = await save_avatar(content, img_type, str(request.base_url))
+    except Exception as exc:
+        logger.warning("Upload avatara nie powiodl sie: %s", exc)
+        return templates.TemplateResponse("profile/edit.html", {
+            "request": request, "user": user,
+            "avatar_error": "Nie udało się zapisać zdjęcia. Spróbuj ponownie.",
+        }, status_code=502)
 
-    base_url = str(request.base_url).rstrip("/")
-    user.avatar_url = f"{base_url}/static/avatars/{filename}"
+    user.avatar_url = new_url
     db.commit()
+    await delete_avatar(old_avatar)  # sprzątanie starego pliku (best-effort)
     return RedirectResponse("/profile/edit", status_code=303)
+
+
+@router.post("/profile/delete")
+async def profile_delete(
+    request: Request,
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Trwałe usunięcie konta (RODO). Kaskada DB czyści wszystkie powiązane dane."""
+    from sqlalchemy import text
+    from app.services.storage_service import delete_avatar
+    user = require_user(request, db)
+
+    if not verify_password(password, user.hashed_password):
+        return templates.TemplateResponse("profile/edit.html", {
+            "request": request, "user": user,
+            "delete_error": "Nieprawidłowe hasło — konto nie zostało usunięte.",
+        }, status_code=400)
+
+    avatar_url = user.avatar_url
+    # ON DELETE CASCADE czyści okazje, życzenia, rezerwacje, znajomości,
+    # rodziny (utworzone przez użytkownika) i zaproszenia.
+    db.execute(text("DELETE FROM users WHERE id = :id"), {"id": user.id})
+    db.commit()
+    await delete_avatar(avatar_url)
+
+    resp = RedirectResponse("/", status_code=303)
+    resp.delete_cookie("pm_token")
+    return resp

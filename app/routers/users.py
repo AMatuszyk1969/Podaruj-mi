@@ -38,34 +38,26 @@ async def upload_avatar(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from app.config import settings
+    from app.services.storage_service import delete_avatar, detect_image_type, save_avatar
+
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="Plik za duzy (max 2 MB)")
 
-    # Walidacja MIME przez naglowek bajtow
-    import imghdr
-    img_type = imghdr.what(None, h=content[:32])
+    img_type = detect_image_type(content)
     if img_type not in ("jpeg", "png", "gif", "webp"):
         raise HTTPException(status_code=400, detail="Niedozwolony typ pliku")
 
-    # W dev: zapisz lokalnie; w prod: upload do Supabase Storage
-    from app.config import settings
-    import os, uuid
-    filename = f"{uuid.uuid4()}.{img_type}"
-
-    if settings.is_development:
-        static_dir = "frontend/static/avatars"
-        os.makedirs(static_dir, exist_ok=True)
-        filepath = f"{static_dir}/{filename}"
-        with open(filepath, "wb") as f:
-            f.write(content)
-        avatar_url = f"{settings.FRONTEND_URL}/static/avatars/{filename}"
-    else:
-        # Supabase Storage upload
-        raise HTTPException(status_code=501, detail="Supabase storage nie jest skonfigurowany")
+    old_avatar = current_user.avatar_url
+    try:
+        avatar_url = await save_avatar(content, img_type, settings.FRONTEND_URL)
+    except Exception:
+        raise HTTPException(status_code=502, detail="Nie udalo sie zapisac zdjecia")
 
     current_user.avatar_url = avatar_url
     db.commit()
+    await delete_avatar(old_avatar)
     return AvatarResponse(avatar_url=avatar_url)
 
 
