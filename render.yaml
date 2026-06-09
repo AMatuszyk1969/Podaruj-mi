@@ -1,0 +1,63 @@
+# Render Blueprint – aplikacja „Podaruj mi”
+# Baza danych i Storage: Supabase (poza Render). Tu definiujemy tylko web service.
+# Dokumentacja kroków: RENDER_SUPABASE.md
+#
+# Uwaga: sekrety (sync: false) i wartości środowiskowe ustawiasz w panelu Render
+# po utworzeniu serwisu z tego Blueprintu — NIE trzymamy ich w repo.
+
+services:
+  - type: web
+    name: podaruj-mi
+    runtime: docker
+    plan: starter            # 'free' usypia po bezczynności → scheduler nie zadziała; 'starter' działa ciągle
+    region: frankfurt        # region UE (RODO + niższe opóźnienia w PL)
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # ── Wartości jawne ──────────────────────────────────────────────
+      - key: APP_ENV
+        value: production
+      - key: APP_NAME
+        value: Podaruj mi
+      - key: APP_VERSION
+        value: 1.0.0
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0.1"
+      - key: LOGIN_RATE_LIMIT
+        value: 5/minute
+      - key: GENERAL_RATE_LIMIT
+        value: 100/minute
+
+      # ── Sekret generowany przez Render ──────────────────────────────
+      - key: SECRET_KEY
+        generateValue: true
+
+      # ── Sekrety / wartości do uzupełnienia w panelu Render ──────────
+      - key: FRONTEND_URL          # publiczny URL serwisu, np. https://podaruj-mi.onrender.com
+        sync: false
+      - key: DATABASE_URL          # Supabase: Session pooler (IPv4), patrz RENDER_SUPABASE.md
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_SERVER
+        sync: false
+      - key: MAIL_PORT
+        sync: false
+      - key: MAIL_STARTTLS
+        sync: false
+      - key: MAIL_SSL_TLS
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

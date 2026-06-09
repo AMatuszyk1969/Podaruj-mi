@@ -27,5 +27,6 @@ USER appuser
 
 EXPOSE 8000
 
-# Run migrations then start the server
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Migracje, potem serwer. $PORT wstrzykiwany przez platformę (Render), lokalnie 8000.
+# --proxy-headers/--forwarded-allow-ips: poprawne https w linkach maili i URL-ach avatarów za proxy.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
