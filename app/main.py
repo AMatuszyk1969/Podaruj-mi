@@ -11,13 +11,19 @@ from slowapi.util import get_remote_address
 from fastapi.responses import RedirectResponse
 
 from app.config import settings
+from app.utils.observability import configure_logging, init_sentry
+
+# Logowanie i monitoring błędów – jak najwcześniej, by łapać też błędy startu
+configure_logging()
+init_sentry()
+
 from app.database import engine
-from app.models import *  # noqa: F401, F403  – rejestruje modele w Base
-from app.database import Base
-from app.routers import auth, families, friends, occasions, pages, users
-from app.services.scheduler import start_scheduler, stop_scheduler
-from app.utils.cookie_auth import _LoginRequired
-from app.utils.csrf import CSRFMiddleware
+from app.models import *  # noqa: F401, F403, E402  – rejestruje modele w Base
+from app.database import Base  # noqa: E402
+from app.routers import auth, families, friends, occasions, pages, users  # noqa: E402
+from app.services.scheduler import start_scheduler, stop_scheduler  # noqa: E402
+from app.utils.cookie_auth import _LoginRequired  # noqa: E402
+from app.utils.csrf import CSRFMiddleware  # noqa: E402
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[settings.GENERAL_RATE_LIMIT])
 

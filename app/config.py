@@ -7,8 +7,14 @@ class Settings(BaseSettings):
     # App
     APP_ENV: str = "development"
     APP_NAME: str = "Podaruj mi"
+    APP_VERSION: str = "1.0.0"
     FRONTEND_URL: str = "http://localhost:5173"
     API_V1_PREFIX: str = "/api/v1"
+
+    # Obserwowalność
+    LOG_LEVEL: str = "INFO"
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0   # 0.0 = bez tracingu; np. 0.1 w prod
 
     # Database
     DATABASE_URL: str = "sqlite:///./app.db"

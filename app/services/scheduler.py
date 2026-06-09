@@ -65,9 +65,10 @@ async def send_deadline_reminders() -> None:
                 db.commit()
             except Exception as exc:
                 db.rollback()
-                logger.error("Reminder failed for occasion %s: %s", occasion.id, exc)
+                logger.error("Reminder failed for occasion %s: %s", occasion.id, exc,
+                             exc_info=True)
     except Exception as exc:
-        logger.error("Scheduler error: %s", exc)
+        logger.error("Scheduler error: %s", exc, exc_info=True)
     finally:
         db.close()
 
@@ -120,9 +121,10 @@ async def send_occasion_summaries() -> None:
                 db.commit()
             except Exception as exc:
                 db.rollback()
-                logger.error("Summary failed for occasion %s: %s", occasion.id, exc)
+                logger.error("Summary failed for occasion %s: %s", occasion.id, exc,
+                             exc_info=True)
     except Exception as exc:
-        logger.error("Scheduler summary error: %s", exc)
+        logger.error("Scheduler summary error: %s", exc, exc_info=True)
     finally:
         db.close()
 
