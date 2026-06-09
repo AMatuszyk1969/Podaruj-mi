@@ -1,54 +1,53 @@
 {% extends "base.html" %}
 {% block title %}Okazje – Podaruj mi{% endblock %}
+
+{% macro occasion_card(occ, muted=false) %}
+<a href="/occasions/{{ occ.id }}"
+   class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-start gap-4 hover:shadow-md transition active:scale-95 {% if muted %}opacity-70{% endif %}">
+
+  <!-- Ikona typu okazji -->
+  <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl
+    {% if occ.occasion_type == 'birthday' %}bg-yellow-50
+    {% elif occ.occasion_type == 'christmas' %}bg-green-50
+    {% elif occ.occasion_type == 'name_day' %}bg-pink-50
+    {% elif occ.occasion_type == 'anniversary' %}bg-red-50
+    {% else %}bg-blue-50{% endif %}">
+    {% if occ.occasion_type == 'birthday' %}🎂
+    {% elif occ.occasion_type == 'christmas' %}🎄
+    {% elif occ.occasion_type == 'name_day' %}🌸
+    {% elif occ.occasion_type == 'anniversary' %}💍
+    {% else %}🎁{% endif %}
+  </div>
+
+  <div class="flex-1 min-w-0">
+    <p class="font-semibold text-gray-800 truncate">{{ occ.title }}</p>
+    <p class="text-sm text-gray-500 truncate">Dla: {{ occ.recipient.first_name }} {{ occ.recipient.last_name }}</p>
+    <div class="flex items-center gap-3 mt-1.5">
+      <span class="text-xs text-gray-400">📅 {{ occ.occasion_date }}</span>
+      <span class="text-xs {% if occ.pledged_count == occ.items_count and occ.items_count > 0 %}text-green-600{% else %}text-brand-600{% endif %}">
+        🎁 {{ occ.pledged_count }}/{{ occ.items_count }} zarezerwowanych
+      </span>
+    </div>
+  </div>
+
+  <svg width="20" height="20" class="w-5 h-5 text-gray-300 flex-shrink-0 mt-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+  </svg>
+</a>
+{% endmacro %}
+
 {% block content %}
 
 <div class="flex items-center justify-between mb-5">
-  <h1 class="text-xl font-bold text-brand-700">Nadchodzące okazje</h1>
+  <h1 class="text-xl font-bold text-brand-700">Okazje</h1>
   <a href="/occasions/new"
      class="bg-brand-700 hover:bg-brand-600 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow transition">
     + Nowa
   </a>
 </div>
 
-{% if occasions %}
-<div class="flex flex-col gap-3">
-  {% for occ in occasions %}
-  <a href="/occasions/{{ occ.id }}"
-     class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-start gap-4 hover:shadow-md transition active:scale-95">
-
-    <!-- Ikona typu okazji -->
-    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl
-      {% if occ.occasion_type == 'birthday' %}bg-yellow-50
-      {% elif occ.occasion_type == 'christmas' %}bg-green-50
-      {% elif occ.occasion_type == 'name_day' %}bg-pink-50
-      {% elif occ.occasion_type == 'anniversary' %}bg-red-50
-      {% else %}bg-blue-50{% endif %}">
-      {% if occ.occasion_type == 'birthday' %}🎂
-      {% elif occ.occasion_type == 'christmas' %}🎄
-      {% elif occ.occasion_type == 'name_day' %}🌸
-      {% elif occ.occasion_type == 'anniversary' %}💍
-      {% else %}🎁{% endif %}
-    </div>
-
-    <div class="flex-1 min-w-0">
-      <p class="font-semibold text-gray-800 truncate">{{ occ.title }}</p>
-      <p class="text-sm text-gray-500 truncate">Dla: {{ occ.recipient.first_name }} {{ occ.recipient.last_name }}</p>
-      <div class="flex items-center gap-3 mt-1.5">
-        <span class="text-xs text-gray-400">📅 {{ occ.occasion_date }}</span>
-        <span class="text-xs {% if occ.pledged_count == occ.items_count and occ.items_count > 0 %}text-green-600{% else %}text-brand-600{% endif %}">
-          🎁 {{ occ.pledged_count }}/{{ occ.items_count }} zarezerwowanych
-        </span>
-      </div>
-    </div>
-
-    <svg width="20" height="20" class="w-5 h-5 text-gray-300 flex-shrink-0 mt-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-    </svg>
-  </a>
-  {% endfor %}
-</div>
-
-{% else %}
+{% if not upcoming and not past %}
+<!-- Pusty stan -->
 <div class="flex flex-col items-center text-center pt-12 pb-8">
   <div class="text-6xl mb-4">🎈</div>
   <h2 class="text-lg font-semibold text-gray-600 mb-2">Brak okazji</h2>
@@ -60,6 +59,33 @@
     Stwórz okazję
   </a>
 </div>
+
+{% else %}
+
+<!-- Nadchodzące -->
+<div class="flex items-center gap-2 mb-3">
+  <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Nadchodzące</h2>
+  <span class="text-xs text-gray-400">{{ upcoming|length }}</span>
+</div>
+{% if upcoming %}
+<div class="flex flex-col gap-3 mb-7">
+  {% for occ in upcoming %}{{ occasion_card(occ) }}{% endfor %}
+</div>
+{% else %}
+<p class="text-sm text-gray-400 mb-7">Brak nadchodzących okazji.</p>
+{% endif %}
+
+<!-- Wykorzystane -->
+{% if past %}
+<div class="flex items-center gap-2 mb-3">
+  <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wide">Wykorzystane</h2>
+  <span class="text-xs text-gray-400">{{ past|length }}</span>
+</div>
+<div class="flex flex-col gap-3">
+  {% for occ in past %}{{ occasion_card(occ, muted=true) }}{% endfor %}
+</div>
+{% endif %}
+
 {% endif %}
 
 {% endblock %}

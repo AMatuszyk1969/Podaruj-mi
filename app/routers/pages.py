@@ -282,10 +282,19 @@ def occasions_list(request: Request, db: Session = Depends(get_db)):
     user = require_user(request, db)
 
     result = OccasionService.list_visible(db, user.id, upcoming_only=False, page=1, limit=50)
+    today = datetime.now(timezone.utc).date()
+    # Nadchodzące – data okazji jeszcze nie minęła (dziś włącznie), rosnąco
+    upcoming = [o for o in result.items if o.occasion_date >= today]
+    # Wykorzystane – data już przeszła, najnowsze na górze
+    past = sorted(
+        (o for o in result.items if o.occasion_date < today),
+        key=lambda o: o.occasion_date, reverse=True,
+    )
     return templates.TemplateResponse("occasions/list.html", {
         "request": request,
         "user": user,
-        "occasions": result.items,
+        "upcoming": upcoming,
+        "past": past,
     })
 
 
