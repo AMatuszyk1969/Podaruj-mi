@@ -22,8 +22,8 @@ class OccasionCreateRequest(BaseModel):
 
     @model_validator(mode="after")
     def deadline_before_occasion(self) -> "OccasionCreateRequest":
-        if self.pledge_deadline.date() > self.occasion_date:
-            raise ValueError("Deadline musi byc przed lub w dniu okazji")
+        if self.pledge_deadline.date() >= self.occasion_date:
+            raise ValueError("Termin zapisów musi być wcześniejszy niż data okazji")
         return self
 
 
@@ -34,6 +34,13 @@ class OccasionUpdateRequest(BaseModel):
     occasion_date: date | None = None
     pledge_deadline: datetime | None = None
     visibility: Visibility | None = None
+
+    @model_validator(mode="after")
+    def deadline_before_occasion(self) -> "OccasionUpdateRequest":
+        if self.occasion_date is not None and self.pledge_deadline is not None:
+            if self.pledge_deadline.date() >= self.occasion_date:
+                raise ValueError("Termin zapisów musi być wcześniejszy niż data okazji")
+        return self
 
 
 class OccasionListItem(BaseModel):

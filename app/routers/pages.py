@@ -340,14 +340,18 @@ def occasions_new_post(
 ):
     user = require_user(request, db)
     try:
+        occ_date = date.fromisoformat(occasion_date)
         deadline_date = date.fromisoformat(pledge_deadline)
+        if deadline_date >= occ_date:
+            raise HTTPException(status_code=400,
+                                detail="Termin zapisów musi być wcześniejszy niż data okazji.")
         deadline_dt = datetime.combine(deadline_date, datetime.max.time().replace(microsecond=0))
         occ = OccasionService.create(db, OccasionCreateRequest(
             title=title,
             description=description or None,
             occasion_type=occasion_type,
             family_id=family_id if (visibility == "family" and family_id) else None,
-            occasion_date=date.fromisoformat(occasion_date),
+            occasion_date=occ_date,
             pledge_deadline=deadline_dt,
             visibility=visibility,
             recipient_id=recipient_id,
@@ -420,13 +424,17 @@ def occasion_edit_post(
 ):
     user = require_user(request, db)
     try:
+        occ_date = date.fromisoformat(occasion_date)
         deadline_date = date.fromisoformat(pledge_deadline)
+        if deadline_date >= occ_date:
+            raise HTTPException(status_code=400,
+                                detail="Termin zapisów musi być wcześniejszy niż data okazji.")
         deadline_dt = datetime.combine(deadline_date, datetime.max.time().replace(microsecond=0))
         OccasionService.update(db, occasion_id, OccasionUpdateRequest(
             title=title,
             description=description,
             occasion_type=occasion_type,
-            occasion_date=date.fromisoformat(occasion_date),
+            occasion_date=occ_date,
             pledge_deadline=deadline_dt,
         ), user.id)
         return RedirectResponse(f"/occasions/{occasion_id}", status_code=303)
