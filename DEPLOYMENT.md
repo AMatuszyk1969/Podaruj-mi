@@ -12,7 +12,7 @@ wdrożenie w kontenerach (Docker) za reverse proxy z TLS.
 
 - **Aplikacja**: FastAPI + Jinja2 + HTMX (renderowanie po stronie serwera).
 - **Baza**: PostgreSQL, migracje przez Alembic (`alembic upgrade head`).
-- **E-mail**: fastapi-mail (SMTP, np. SendGrid) — aktywacja konta, reset hasła,
+- **E-mail**: fastapi-mail (SMTP, np. Brevo) — aktywacja konta, reset hasła,
   powiadomienia o okazjach i terminach.
 - **Pliki (avatary)**: Supabase Storage (lub lokalny dysk w dev).
 - **Zadania w tle**: APScheduler w procesie aplikacji (przypomnienia, podsumowania).
@@ -36,13 +36,13 @@ wdrożenie w kontenerach (Docker) za reverse proxy z TLS.
 - [ ] Supabase Storage skonfigurowane (§8) — inaczej avatary znikają po redeployu.
 
 ### Komunikacja
-- [ ] Produkcyjny SMTP (np. SendGrid) + **SPF / DKIM / DMARC** na domenie (§7).
+- [ ] Produkcyjny SMTP (np. Brevo) + **SPF / DKIM / DMARC** na domenie (§7).
 - [ ] Adres `MAIL_FROM` na zweryfikowanej domenie.
 
 ### Prawne (RODO) — przed publicznym startem
 - [ ] Treść `Regulamin` (`/regulamin`) uzupełniona przez prawnika.
 - [ ] Treść `Polityka prywatności` (`/polityka-prywatnosci`) uzupełniona (dane administratora, procesorzy, retencja).
-- [ ] Umowy powierzenia danych z procesorami (SendGrid, Supabase, hosting).
+- [ ] Umowy powierzenia danych z procesorami (Brevo, Supabase, hosting).
 
 ### Monitoring
 - [ ] `SENTRY_DSN` ustawiony, alerty skonfigurowane w panelu Sentry (§9).
@@ -65,11 +65,11 @@ DATABASE_URL=postgresql+psycopg2://USER:HASLO@HOST:5432/podaruj_mi
 SECRET_KEY=<wygenerowany losowy hex 32+ znaki>
 ACCESS_TOKEN_EXPIRE_MINUTES=43200
 
-# E-mail (SendGrid lub inny SMTP)
-MAIL_USERNAME=apikey
-MAIL_PASSWORD=<sendgrid_api_key>
+# E-mail (Brevo lub inny SMTP)
+MAIL_USERNAME=<e-mail konta Brevo>
+MAIL_PASSWORD=<klucz SMTP z Brevo>
 MAIL_FROM=noreply@twoja-domena.pl
-MAIL_SERVER=smtp.sendgrid.net
+MAIL_SERVER=smtp-relay.brevo.com
 MAIL_PORT=587
 MAIL_STARTTLS=true
 MAIL_SSL_TLS=false
@@ -188,7 +188,7 @@ aktywacyjny w mailu zaczyna się od `https://`.
 
 Bez tego maile aktywacyjne i resetu hasła trafią do spamu → użytkownicy nie założą konta.
 
-- [ ] Zweryfikuj domenę nadawcy u dostawcy SMTP (np. SendGrid → Sender Authentication).
+- [ ] Zweryfikuj domenę nadawcy u dostawcy SMTP (Brevo → Senders, Domains & Dedicated IPs → Domains).
 - [ ] Dodaj rekordy **SPF**, **DKIM** (zwykle CNAME-y od dostawcy) w DNS domeny.
 - [ ] Dodaj rekord **DMARC** (`_dmarc.twoja-domena.pl`), zacznij od `p=none`.
 - [ ] Przetestuj na [mail-tester.com](https://www.mail-tester.com) (cel: 9–10/10).

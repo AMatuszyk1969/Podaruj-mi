@@ -4,7 +4,7 @@ Instrukcja krok po kroku. **Render** hostuje aplikację (Docker), **Supabase**
 dostarcza bazę PostgreSQL i Storage na avatary.
 
 Czas: ~30–45 min. Wymaga konta na [Supabase](https://supabase.com),
-[Render](https://render.com) i dostawcy e-mail (np. [SendGrid](https://sendgrid.com)).
+[Render](https://render.com) i dostawcy e-mail ([Brevo](https://www.brevo.com)).
 
 ---
 
@@ -42,22 +42,26 @@ Czas: ~30–45 min. Wymaga konta na [Supabase](https://supabase.com),
 
 ---
 
-## Krok 3 — E-mail (SendGrid)
+## Krok 3 — E-mail (Brevo)
 
-1. Załóż konto, zweryfikuj domenę nadawcy (**Sender Authentication**) — ustaw
-   rekordy **SPF/DKIM** w DNS, dodaj **DMARC** (`p=none` na start).
-2. Wygeneruj **API Key** (Mail Send).
-3. Wartości środowiskowe:
+1. Załóż konto na [Brevo](https://www.brevo.com) (dawniej Sendinblue) — firma z UE,
+   RODO-friendly, darmowy plan 300 maili/dzień.
+2. Zweryfikuj domenę nadawcy: **Senders, Domains & Dedicated IPs → Domains** —
+   ustaw rekordy **SPF/DKIM** (Brevo poda gotowe wpisy DNS), dodaj **DMARC** (`p=none` na start).
+3. Pobierz dane SMTP: **SMTP & API → SMTP** — tam jest host, login i klucz SMTP.
+4. Wartości środowiskowe:
    ```
-   MAIL_USERNAME = apikey
-   MAIL_PASSWORD = <SendGrid API Key>
+   MAIL_USERNAME = <e-mail konta Brevo>
+   MAIL_PASSWORD = <klucz SMTP z Brevo>
    MAIL_FROM     = noreply@twoja-domena.pl
-   MAIL_SERVER   = smtp.sendgrid.net
+   MAIL_SERVER   = smtp-relay.brevo.com
    MAIL_PORT     = 587
    MAIL_STARTTLS = true
    MAIL_SSL_TLS  = false
    ```
 > Bez SPF/DKIM maile aktywacyjne trafią do spamu. Przetestuj na mail-tester.com.
+> Alternatywa o podobnej konfiguracji: Resend (`smtp.resend.com`, login `resend`,
+> hasło = API key).
 
 ---
 
